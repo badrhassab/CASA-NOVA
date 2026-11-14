@@ -1,0 +1,197 @@
+================================================================================
+          ASTROGUARD [ v1.0 ] — AI DOCTOR / ASSISTRONAUT INTEGRATION GUIDE
+================================================================================
+Target Stack: Django + Supabase (PostgreSQL) + React (TypeScript + Tailwind CSS)
+Guaranteed:   ZERO MERGE CONFLICTS (Unmanaged models, purely additive files)
+================================================================================
+
+TABLE OF CONTENTS:
+1. Quick Overview
+2. How to Push as a Git Branch (Step-by-Step)
+3. Backend Drop-in (Django + Supabase)
+4. Frontend Drop-in (React + TypeScript + Tailwind)
+5. Environment Variables Setup
+6. Verification & Test Checklist
+
+================================================================================
+1. QUICK OVERVIEW
+================================================================================
+AstroGuard AI Doctor (Assistronaut) is an onboard clinical & science companion
+for long-duration space missions.
+
+- Real-Time Vitals: Queries heart rate, blood pressure, cabin temperature,
+  oxygen, CO2 scrubber, and radiation dosage directly from your Supabase DB.
+- Natural Conversational AI: Powered by Groq Cloud API (openai/gpt-oss-120b).
+  Zero local GPU or Docker required.
+- Automatic Audit Logging: Automatically records every chat interaction into
+  your existing Supabase `medical_chat_logs` table with triage level and tags.
+- Zero Migrations (`managed = False`): NEVER touches or alters your database schema.
+
+================================================================================
+2. HOW TO PUSH AS A GIT BRANCH
+================================================================================
+Follow these exact steps in your terminal (PowerShell or Bash):
+
+--- OPTION 1: Adding directly to your team's existing Git repository ---
+
+Step 1: Open your team's project directory in terminal:
+   cd path/to/your/team-repo
+
+Step 2: Make sure you have the latest main branch:
+   git checkout main
+   git pull origin main
+
+Step 3: Create and switch to a new feature branch:
+   git checkout -b feature/astroguard-ai-doctor
+
+Step 4: Copy the Assistronaut files into your project:
+   # Backend:
+   cp -r C:/Users/HP/Documents/Assistronaut/backend/assistronaut backend/assistronaut
+   
+   # Frontend (Types, Service, Components):
+   cp C:/Users/HP/Documents/Assistronaut/frontend/src/types/assistronaut.ts frontend/src/types/
+   cp C:/Users/HP/Documents/Assistronaut/frontend/src/services/assistronaut.ts frontend/src/services/
+   cp C:/Users/HP/Documents/Assistronaut/frontend/src/components/AssistronautChat.tsx frontend/src/components/
+   cp C:/Users/HP/Documents/Assistronaut/frontend/src/components/AssistronautWidget.tsx frontend/src/components/
+
+Step 5: Stage the newly added files:
+   git add backend/assistronaut/
+   git add frontend/src/types/assistronaut.ts
+   git add frontend/src/services/assistronaut.ts
+   git add frontend/src/components/AssistronautChat.tsx
+   git add frontend/src/components/AssistronautWidget.tsx
+
+Step 6: Commit your changes:
+   git commit -m "feat(ai-doctor): add AstroGuard Assistronaut clinical chatbot"
+
+Step 7: Push the branch to GitHub:
+   git push -u origin feature/astroguard-ai-doctor
+
+Step 8: Open GitHub and click "Compare & pull request"!
+   Your teammates can now review, test, and merge without touching their work.
+
+
+--- OPTION 2: Publishing Assistronaut as its own standalone GitHub repo ---
+
+Step 1: Open the Assistronaut directory:
+   cd C:/Users/HP/Documents/Assistronaut
+
+Step 2: Initialize git and make the first commit:
+   git init
+   git add .
+   git commit -m "feat: initial commit of AstroGuard Assistronaut module"
+
+Step 3: Create your new repo on GitHub (e.g. https://github.com/YourUsername/assistronaut)
+
+Step 4: Link and push:
+   git branch -M main
+   git remote add origin https://github.com/YourUsername/assistronaut.git
+   git push -u origin main
+
+================================================================================
+3. BACKEND DROP-IN (DJANGO + SUPABASE)
+================================================================================
+Your backend colleague only needs to do 4 simple lines:
+
+1. Dependencies:
+   Install the required packages in your backend virtualenv:
+   pip install djangorestframework django-cors-headers supabase requests
+
+2. In your Django `settings.py`:
+   INSTALLED_APPS = [
+       ...
+       'rest_framework',
+       'corsheaders',
+       'assistronaut',    # <-- ADD THIS SINGLE LINE
+   ]
+
+3. In your Django root `urls.py`:
+   from django.urls import path, include
+
+   urlpatterns = [
+       ...
+       path('api/assistronaut/', include('assistronaut.urls')),  # <-- ADD THIS
+   ]
+
+4. IMPORTANT: DO NOT RUN MIGRATIONS!
+   Do NOT run `makemigrations assistronaut`.
+   All models use `managed = False` so they connect directly to your existing
+   Supabase tables without altering anything.
+
+================================================================================
+4. FRONTEND DROP-IN (REACT + TYPESCRIPT + TAILWIND)
+================================================================================
+Your frontend colleague can use either (or both) of the pre-styled components:
+
+Option A: Full-Page Command Center Route (`AssistronautChat.tsx`)
+----------------------------------------------------------------
+In your `App.tsx` (or router file):
+   import { Route, Routes } from 'react-router-dom';
+   import { AssistronautChat } from './components/AssistronautChat';
+
+   <Routes>
+       {/* Existing routes ... */}
+       <Route path="/ai-doctor" element={<AssistronautChat />} />
+   </Routes>
+
+Add a link in your navigation bar:
+   <Link to="/ai-doctor" className="hover:text-orange-400">
+       ai doctor ↗
+   </Link>
+
+Option B: Floating Drawer Widget on Any Page (`AssistronautWidget.tsx`)
+----------------------------------------------------------------------
+In your root layout or `App.tsx`:
+   import { AssistronautWidget } from './components/AssistronautWidget';
+
+   export function App() {
+       return (
+           <div className="min-h-screen bg-[#060709] text-white">
+               <Navbar />
+               <Routes>{/* your routes */}</Routes>
+               <AssistronautWidget />   {/* <-- Bottom-right floating bubble */}
+           </div>
+       );
+   }
+
+Customizing Props:
+Both components automatically pull from Supabase. You can also pass:
+   <AssistronautChat astronautId={currentUser.astronaut_id} />
+
+================================================================================
+5. ENVIRONMENT VARIABLES SETUP
+================================================================================
+In your backend `.env` file:
+
+# Free Groq Cloud API Key (Get a free key at: https://console.groq.com/keys)
+GROQ_API_KEY=gsk_your_key_here
+GROQ_MODEL=openai/gpt-oss-120b
+
+# Your existing Supabase Project credentials:
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_KEY=your-supabase-service-role-key
+
+Optional in frontend `.env` (only if backend runs on a different port):
+VITE_ASSISTRONAUT_API_URL=http://localhost:8000/api/assistronaut
+
+================================================================================
+6. VERIFICATION & TEST CHECKLIST
+================================================================================
+Run this checklist to verify everything is working smoothly:
+
+[ ] 1. Health Endpoint:
+       GET http://localhost:8000/api/assistronaut/health/
+       Returns: {"status": "ok", "service": "Assistronaut API"}
+
+[ ] 2. Vitals & Temperature Verification:
+       Ask: "What is my current heart rate and cabin temperature?"
+       Expected: Mentions HR (62 bpm) and cabin temperature (21.5°C).
+
+[ ] 3. Microgravity Symptom Protocol:
+       Ask: "I am feeling a little dizziness. Is this normal on our transit?"
+       Expected: Explains microgravity neurovestibular adaptation and fluid shifts.
+
+[ ] 4. Audit Log Check:
+       Check your Supabase table `medical_chat_logs`.
+       Verify that the conversation turn was inserted with sender and triage level.
+================================================================================

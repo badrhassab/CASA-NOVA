@@ -1,0 +1,27 @@
+# ============================================================
+# Assistronaut – Python Dependencies
+# Install into the same virtualenv as your Django project:
+#   pip install -r requirements_assistronaut.txt
+# ============================================================
+
+# Core REST framework (likely already installed – safe to re-install)
+djangorestframework>=3.15.2
+django-cors-headers>=4.4.0
+
+# Supabase Python client (for direct REST access to your project)
+supabase>=2.0.0
+
+# HTTP utilities (stdlib-only http requests already used in db.py;
+# requests is optional but useful for debugging)
+requests>=2.31.0
+
+# ---- Optional: RAG / Vector Search (uncomment to enable /ingest) ----
+# llama-index-core>=0.12.0
+# llama-index-llms-ollama>=0.4.2
+# llama-index-embeddings-huggingface>=0.4.0
+# llama-index-vector-stores-chroma>=0.4.1
+# llama-index-readers-web>=0.3.3
+# sentence-transformers>=3.3.1
+# chromadb>=0.5.23
+# beautifulsoup4>=4.12.3
+# ollama>=0.3.3
