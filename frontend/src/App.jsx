@@ -1,15 +1,23 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import Destinations from "./pages/Destinations";
+import LifeSupport from "./pages/LifeSupport";
+
+const ROUTES = {
+  "/planets": Destinations,
+  "/life-support": LifeSupport,
+};
+
+const current = () => window.location.hash.slice(1) || "/planets";
 
 export default function App() {
-  const [status, setStatus] = useState("loading...");
+  const [path, setPath] = useState(current);
 
   useEffect(() => {
-    axios
-      .get(`${import.meta.env.VITE_API_URL}/health/`)
-      .then((res) => setStatus(res.data.status))
-      .catch(() => setStatus("backend unreachable"));
+    const onChange = () => setPath(current());
+    window.addEventListener("hashchange", onChange);
+    return () => window.removeEventListener("hashchange", onChange);
   }, []);
 
-  return <h1>CASA-NOVA: backend is {status}</h1>;
+  const Page = ROUTES[path] || Destinations;
+  return <Page />;
 }
