@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NASA • Mission Control Access</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            space: {
+              black: '#030508',
+              card: 'rgba(8, 12, 22, 0.88)',
+              cyan: '#38bdf8',
+              blue: '#0284c7'
+            }
+          },
+          fontFamily: {
+            hud: ['Chakra Petch', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+            sans: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts & Lucide Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    * { box-sizing: border-box; user-select: none; }
+    body {
+      margin: 0;
+      background-color: #020306;
+      color: #f8fafc;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #stars-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .hud-card {
+      background: rgba(8, 12, 22, 0.90);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      box-shadow: 
+        0 0 60px -10px rgba(14, 165, 233, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 0 20px rgba(56, 189, 248, 0.05);
+      position: relative;
+    }
+
+    .bracket-tl { position: absolute; top: -1px; left: -1px; width: 16px; height: 16px; border-top: 2px solid #38bdf8; border-left: 2px solid #38bdf8; }
+    .bracket-tr { position: absolute; top: -1px; right: -1px; width: 16px; height: 16px; border-top: 2px solid #38bdf8; border-right: 2px solid #38bdf8; }
+    .bracket-bl { position: absolute; bottom: -1px; left: -1px; width: 16px; height: 16px; border-bottom: 2px solid #38bdf8; border-left: 2px solid #38bdf8; }
+    .bracket-br { position: absolute; bottom: -1px; right: -1px; width: 16px; height: 16px; border-bottom: 2px solid #38bdf8; border-right: 2px solid #38bdf8; }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.5; }
+      50% { transform: scale(1.05); opacity: 0.9; }
+      100% { transform: scale(0.95); opacity: 0.5; }
+    }
+    .animate-pulse-ring { animation: pulse-ring 4s ease-in-out infinite; }
+
+    .input-glow:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
+    }
+  </style>
+</head>
+<body class="relative">
+
+  <canvas id="stars-canvas"></canvas>
+
+  <!-- Top Bar -->
+  <header class="absolute top-6 left-6 right-6 max-w-6xl mx-auto flex items-center justify-between text-xs font-mono text-slate-400 z-10 pointer-events-none">
+    <div class="flex items-center gap-2.5">
+      <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+      <span class="text-slate-200 font-bold tracking-wider">NASA HRP SECURE GATEWAY</span>
+      <span class="text-slate-600 hidden sm:inline">|</span>
+      <span class="text-cyan-400 hidden sm:inline">DATABASE : SUPABASE LIVE</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="px-2.5 py-1 rounded bg-slate-900/80 border border-slate-800 text-[11px] text-cyan-300">
+        MISSION CLOCK : <span id="clock-display" class="font-bold text-white">00:00:00</span>
+      </span>
+    </div>
+  </header>
+
+  <!-- MAIN HUD CARD -->
+  <main class="w-full max-w-[440px] mx-4 hud-card rounded-2xl p-8 sm:p-10 z-10 relative">
+    <div class="bracket-tl"></div><div class="bracket-tr"></div>
+    <div class="bracket-bl"></div><div class="bracket-br"></div>
+
+    <!-- NASA Badge -->
+    <div class="text-center space-y-3 mb-6">
+      <div class="relative inline-flex items-center justify-center">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-950 via-slate-900 to-cyan-950 border border-cyan-400/50 flex items-center justify-center text-cyan-300 shadow-[0_0_30px_rgba(56,189,248,0.35)] animate-pulse-ring">
+          <i data-lucide="orbit" class="w-8 h-8 animate-spin" style="animation-duration: 20s;"></i>
+        </div>
+        <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-slate-950 flex items-center justify-center">
+          <i data-lucide="shield-check" class="w-3 h-3 text-black"></i>
+        </div>
+      </div>
+
+      <div>
+        <div class="inline-block px-2.5 py-0.5 rounded bg-blue-600/30 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold tracking-widest uppercase mb-1">
+          Accès Réservé Équipage
+        </div>
+        <h1 class="text-2xl font-bold font-hud tracking-wider text-white uppercase">
+          Astronaut Portal
+        </h1>
+        <p class="text-xs text-slate-400 font-mono mt-0.5">
+          Authentification Table Astronauts (Supabase)
+        </p>
+      </div>
+    </div>
+
+    <!-- Alert / Feedback Message -->
+    <div id="alert-box" class="hidden mb-4 p-3 rounded-xl text-xs font-mono flex items-center gap-2.5 transition-all">
+      <i id="alert-icon" data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+      <span id="alert-text"></span>
+    </div>
+
+    <!-- Formulaire de Connexion -->
+    <form id="auth-form" onsubmit="handleLogin(event)" class="space-y-4 font-mono text-xs">
+      
+      <!-- Champ Username (full_name) -->
+      <div>
+        <label class="block text-slate-300 mb-1.5 uppercase tracking-wider text-[10px]">
+          Username (Nom de l'astronaute - full_name)
+        </label>
+        <div class="relative">
+          <i data-lucide="user" class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+          <input 
+            type="text" 
+            id="user-input" 
+            placeholder="ex: Dr. Jessica Watkins"
+            class="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-3.5 py-3 text-slate-200 placeholder-slate-600 focus:outline-none input-glow transition duration-200 text-xs"
+            required
+            autocomplete="username"
+          >
+        </div>
+      </div>
+
+      <!-- Champ Password (password) -->
+      <div>
+        <label class="block text-slate-300 mb-1.5 uppercase tracking-wider text-[10px]">
+          Password (Mot de passe)
+        </label>
+        <div class="relative">
+          <i data-lucide="lock" class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+          <input 
+            type="password" 
+            id="pass-input" 
+            placeholder="Entrez votre mot de passe..."
+            class="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-3.5 py-3 text-slate-200 placeholder-slate-600 focus:outline-none input-glow transition duration-200 text-xs"
+            required
+            autocomplete="current-password"
+          >
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <button 
+        type="submit" 
+        id="btn-login"
+        class="w-full mt-3 bg-gradient-to-r from-cyan-500 via-sky-400 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition duration-200 shadow-[0_0_25px_rgba(56,189,248,0.35)] cursor-pointer text-xs uppercase tracking-wider font-hud"
+      >
+        <span id="btn-label">Se Connecter</span>
+        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+      </button>
+    </form>
+
+    <!-- Security Footnote -->
+    <div class="mt-6 pt-4 border-t border-slate-800/80 text-center text-[10px] font-mono text-slate-500 flex items-center justify-center gap-1.5">
+      <i data-lucide="database" class="w-3 h-3 text-emerald-400"></i>
+      <span>Vérification directe sur table `astronauts` (Supabase Cloud)</span>
+    </div>
+
+  </main>
+
+  <!-- SUCCESS MODAL POPUP -->
+  <div id="success-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="hud-card max-w-sm w-full p-6 rounded-2xl text-center space-y-4 font-mono">
+      <div class="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-400 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+        <i data-lucide="check" class="w-8 h-8 stroke-[3]"></i>
+      </div>
+      <div>
+        <h3 class="text-lg font-bold font-hud text-white uppercase">Accréditation Confirmée</h3>
+        <p id="modal-welcome-text" class="text-xs text-slate-300 mt-1 font-semibold"></p>
+        <p id="modal-sub-text" class="text-[11px] text-cyan-400 mt-0.5"></p>
+      </div>
+      <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-[11px] text-slate-300 text-left space-y-1">
+        <div>• Identité Supabase : <span class="text-emerald-400 font-bold">VALIDÉE</span></div>
+        <div>• Statut Équipage : <span class="text-emerald-400 font-bold">AUTORISÉ</span></div>
+        <div>• Session sécurisée : <span class="text-cyan-400">ACTIVE</span></div>
+      </div>
+      <button 
+        onclick="closeModal()" 
+        class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2.5 rounded-xl transition duration-200 cursor-pointer text-xs uppercase font-hud tracking-wider"
+      >
+        Session Ouverte
+      </button>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    // Horloge UTC
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock-display').innerText = now.toTimeString().split(' ')[0] + ' UTC';
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Configuration Supabase
+    const SUPABASE_URL = 'https://yepykpbpdisfeojfrugb.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_vRAJxouYE8IYRNARDQICtg_DnWgMWFT';
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      
+      const usernameInput = document.getElementById('user-input').value.trim();
+      const passwordInput = document.getElementById('pass-input').value;
+      
+      const alertBox = document.getElementById('alert-box');
+      const alertText = document.getElementById('alert-text');
+      const alertIcon = document.getElementById('alert-icon');
+      const btn = document.getElementById('btn-login');
+      const btnLabel = document.getElementById('btn-label');
+
+      alertBox.classList.add('hidden');
+      btnLabel.innerText = "Interrogation Supabase...";
+      btn.classList.add('opacity-75', 'pointer-events-none');
+
+      try {
+        // Requête REST directe à la table 'astronauts' sur Supabase Cloud
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/astronauts?select=*`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error("Impossible de contacter Supabase");
+        }
+
+        const astronauts = await response.json();
+        
+        // Vérification de la correspondance full_name et password
+        const matched = astronauts.find(a => 
+          a.full_name && a.full_name.trim().toLowerCase() === usernameInput.toLowerCase()
+        );
+
+        if (!matched) {
+          showError("Username introuvable : aucun astronaute nommé '" + usernameInput + "' dans la table.");
+        } else if (matched.password !== passwordInput) {
+          showError("Mot de passe incorrect pour " + matched.full_name + ".");
+        } else {
+          // Succès de la connexion !
+          showSuccess(matched);
+        }
+
+      } catch (err) {
+        showError("Erreur de connexion au serveur Supabase : " + err.message);
+      } finally {
+        btnLabel.innerText = "Se Connecter";
+        btn.classList.remove('opacity-75', 'pointer-events-none');
+      }
+    }
+
+    function showError(msg) {
+      const alertBox = document.getElementById('alert-box');
+      const alertText = document.getElementById('alert-text');
+      alertBox.className = "mb-4 p-3 rounded-xl text-xs font-mono flex items-center gap-2.5 bg-rose-950/70 border border-rose-500/50 text-rose-300";
+      alertText.innerText = msg;
+      alertBox.classList.remove('hidden');
+    }
+
+    function showSuccess(astronaut) {
+      document.getElementById('modal-welcome-text').innerText = astronaut.full_name;
+      document.getElementById('modal-sub-text').innerText = `${astronaut.role} • Callsign: ${astronaut.callsign}`;
+      document.getElementById('success-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('success-modal').classList.add('hidden');
+    }
+
+    // -------------------------------------------------------------
+    // Starfield Canvas Background
+    // -------------------------------------------------------------
+    const canvas = document.getElementById('stars-canvas');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      stars = [];
+      const numStars = Math.floor((canvas.width * canvas.height) / 3500);
+      for (let i = 0; i < numStars; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          radius: Math.random() * 1.3,
+          alpha: Math.random(),
+          speed: Math.random() * 0.005 + 0.002
+        });
+      }
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function animateStars() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let star of stars) {
+        star.alpha += star.speed;
+        if (star.alpha > 1 || star.alpha < 0.1) star.speed = -star.speed;
+        ctx.fillStyle = `rgba(186, 230, 253, ${Math.abs(star.alpha)})`;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      requestAnimationFrame(animateStars);
+    }
+
+    resizeCanvas();
+    animateStars();
+  </script>
+</body>
+</html>
