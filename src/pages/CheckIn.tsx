@@ -604,7 +604,7 @@ export const CheckIn: React.FC = () => {
           }}
         >
           {toast}
-          {toast?.startsWith('Saved offline') && <Link to={`/report?week=${Math.floor(selectedDay / 7)}`} style={{ display: 'block', marginTop: 8, color: 'var(--fg)', textAlign: 'center' }}>View in Report →</Link>}
+          {toast?.startsWith('Saved offline') && <Link to={`/report?week=${Math.floor((selectedDay ?? 0) / 7)}`} style={{ display: 'block', marginTop: 8, color: 'var(--fg)', textAlign: 'center' }}>View in Report →</Link>}
         </div>
       )}
 

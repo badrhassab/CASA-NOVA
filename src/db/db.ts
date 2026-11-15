@@ -12,19 +12,28 @@ export interface DailyCheckin {
 }
 export class AstroGuardDB extends Dexie {
   dailyCheckins!: Table<DailyCheckin, number>;
-  drafts!: Table<{ date: string; answers: CheckInAnswers; sectionIndex: number; phase: string; updatedAt: number }, string>;
   constructor() {
     super('AstroGuardDB');
-    this.version(4).stores({ dailyCheckins: 'day, weekIndex, date', drafts: 'date' });
+    this.version(5).stores({ dailyCheckins: 'day, weekIndex, date' });
   }
 }
 export const db = new AstroGuardDB();
 export async function resetDatabase(): Promise<void> {
-  await db.transaction('rw', db.dailyCheckins, db.drafts, async () => {
-    await db.dailyCheckins.clear();
-    await db.drafts.clear();
-  });
+  await db.dailyCheckins.clear();
   const { seedDatabase } = await import('../data/seed');
   await seedDatabase();
 }
 export { BASELINE, computeScores };
+
+export async function initDatabase(): Promise<void> {
+  if (await db.dailyCheckins.count() === 0) {
+    const { seedDatabase } = await import('../data/seed');
+    await seedDatabase();
+  }
+  const [dayZero, dayOne] = await Promise.all([db.dailyCheckins.get(0), db.dailyCheckins.get(1)]);
+  if (dayZero && dayOne && dayZero.date > dayOne.date) {
+    const previousDate = new Date(`${dayOne.date}T00:00:00Z`);
+    previousDate.setUTCDate(previousDate.getUTCDate() - 1);
+    await db.dailyCheckins.update(0, { date: previousDate.toISOString().slice(0, 10) });
+  }
+}

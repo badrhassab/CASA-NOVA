@@ -6,7 +6,7 @@ import { Twin }     from './pages/Twin';
 import { Report }   from './pages/Report';
 import { Doctor }   from './pages/Doctor';
 import { Planets }  from './pages/Planets';
-import { initDatabase } from './db';
+import { initDatabase } from './db/db';
 
 export const App: React.FC = () => {
   useEffect(() => {
