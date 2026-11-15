@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+/* ─── Design Tokens ────────────────────────────────────────────────────────── */
+
+:root {
+  /* Dark mode defaults */
+  --bg:      #050505;
+  --fg:      #F2F2F0;
+  --muted:   #8A8A86;
+  --orange:  #FF5A1F;
+  --border:  rgba(242, 242, 240, 0.08);
+
+  /* Legacy tokens kept for inner pages */
+  --card:        #0B1120;
+  --card-hover:  #0F172A;
+  --primary:     #06B6D4;
+  --accent:      #FF5A1F;
+  --status-green:  #10B981;
+  --status-yellow: #F59E0B;
+  --status-orange: #F97316;
+  --status-red:    #EF4444;
+}
+
+/* ─── Body Base ─────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: 'Inter Tight', 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.9s, color 0.9s;
+}
+
+/* ─── Font Helpers ──────────────────────────────────────────────────────────── */
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ─── HUD / Inner-page utils (kept for other pages) ─────────────────────────── */
+
+.hud-grid {
+  background-size: 32px 32px;
+  background-image:
+    linear-gradient(to right, rgba(255, 90, 31, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 90, 31, 0.03) 1px, transparent 1px);
+}
+
+/* ─── Light-mode overrides (toggled by JS on :root) ─────────────────────────── */
+/* Actual values set via GSAP tweening CSS vars; .light class is a fallback */
+
+:root.light {
+  --bg:    #F2F4F6;
+  --fg:    #0A0A0A;
+  --muted: #6B6B68;
+  --border: rgba(10, 10, 10, 0.10);
+}
+
+/* ─── Scrollbar (subtle) ─────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 2px; }
+
+/* ─── Check-in custom range (hide native chrome) ───────────────────────────── */
+
+.ck-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  cursor: pointer;
+}
+
+.ck-range:focus {
+  outline: none;
+}
+
+.ck-range::-webkit-slider-runnable-track {
+  height: 2px;
+  background: transparent;
+}
+
+.ck-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--orange);
+  border: none;
+  margin-top: -10px;
+  cursor: pointer;
+}
+
+.ck-range::-moz-range-track {
+  height: 2px;
+  background: transparent;
+}
+
+.ck-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--orange);
+  border: none;
+  cursor: pointer;
+}
