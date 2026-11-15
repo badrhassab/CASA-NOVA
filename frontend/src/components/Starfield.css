@@ -1,0 +1,29 @@
+.starfield {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.star {
+  position: absolute;
+  border-radius: 50%;
+  will-change: opacity;
+  animation: twinkle ease-in-out infinite alternate;
+}
+
+/* Brightness tiers — animation modulates opacity on top of the background alpha */
+.star-bright { background: rgba(255, 255, 255, 0.85); }
+.star-mid    { background: rgba(255, 255, 255, 0.45); }
+.star-dim    { background: rgba(255, 255, 255, 0.22); }
+.star-accent { background: rgba(255, 106, 43, 0.55); }
+
+@keyframes twinkle {
+  from { opacity: 1; }
+  to   { opacity: 0.12; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star { animation: none; opacity: 0.7; }
+}

@@ -113,11 +113,12 @@ const glowMaterial = (color, power = 2) =>
     depthWrite: false,
   });
 
-export default function Planet3D({ slug }) {
+export default function Planet3D({ slug, className = "planet-stage" }) {
   const mountRef = useRef(null);
 
   useEffect(() => {
     const mount = mountRef.current;
+    if (!mount) return;
     const look = LOOK[slug] || FALLBACK;
 
     const scene = new THREE.Scene();
@@ -128,14 +129,70 @@ export default function Planet3D({ slug }) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mount.appendChild(renderer.domElement);
 
+    // ── 3D Starfield surrounding the planet in space ──
+    const starCount = 350;
+    const starGeo = new THREE.BufferGeometry();
+    const starPositions = new Float32Array(starCount * 3);
+    const starColors = new Float32Array(starCount * 3);
+
+    for (let i = 0; i < starCount; i++) {
+      const rad = 10 + Math.random() * 24;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 2 - 1);
+      starPositions[i * 3] = rad * Math.sin(phi) * Math.cos(theta);
+      starPositions[i * 3 + 1] = rad * Math.sin(phi) * Math.sin(theta);
+      starPositions[i * 3 + 2] = rad * Math.cos(phi);
+
+      const isOrange = Math.random() < 0.1;
+      if (isOrange) {
+        starColors[i * 3] = 1.0;
+        starColors[i * 3 + 1] = 0.42;
+        starColors[i * 3 + 2] = 0.17;
+      } else {
+        const b = 0.65 + Math.random() * 0.35;
+        starColors[i * 3] = b;
+        starColors[i * 3 + 1] = b;
+        starColors[i * 3 + 2] = Math.min(1.0, b + Math.random() * 0.15);
+      }
+    }
+
+    starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+    starGeo.setAttribute("color", new THREE.BufferAttribute(starColors, 3));
+
+    const starCanvas = document.createElement("canvas");
+    starCanvas.width = 16;
+    starCanvas.height = 16;
+    const sCtx = starCanvas.getContext("2d");
+    const starGrad = sCtx.createRadialGradient(8, 8, 0, 8, 8, 8);
+    starGrad.addColorStop(0, "rgba(255,255,255,1)");
+    starGrad.addColorStop(0.35, "rgba(255,255,255,0.75)");
+    starGrad.addColorStop(1, "rgba(255,255,255,0)");
+    sCtx.fillStyle = starGrad;
+    sCtx.beginPath();
+    sCtx.arc(8, 8, 8, 0, Math.PI * 2);
+    sCtx.fill();
+    const starTexture = new THREE.CanvasTexture(starCanvas);
+
+    const starMat = new THREE.PointsMaterial({
+      size: 0.22,
+      map: starTexture,
+      vertexColors: true,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const stars = new THREE.Points(starGeo, starMat);
+    scene.add(stars);
+
+    // ── 3D Planet sphere ──
     const texture = makeTexture(slug, look);
     const material = look.emissive
       ? new THREE.MeshBasicMaterial({ map: texture })
       : new THREE.MeshStandardMaterial({
           map: texture,
-          roughness: 0.95,
-          metalness: 0,
-          ...(look.bump ? { bumpMap: texture, bumpScale: 0.04 } : {}),
+          roughness: 0.92,
+          metalness: 0.05,
+          ...(look.bump ? { bumpMap: texture, bumpScale: 0.045 } : {}),
         });
 
     const planet = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), material);
@@ -151,10 +208,13 @@ export default function Planet3D({ slug }) {
     }
 
     if (!look.emissive) {
-      scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-      const sun = new THREE.DirectionalLight(0xffffff, 2.6);
-      sun.position.set(-3, 1.5, 3);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+      const sun = new THREE.DirectionalLight(0xffffff, 2.8);
+      sun.position.set(-3, 1.8, 3.2);
       scene.add(sun);
+      const rim = new THREE.DirectionalLight(0x4060aa, 0.6);
+      rim.position.set(3, -1, -2);
+      scene.add(rim);
     }
 
     // optional real texture: public/textures/<slug>.jpg (falls back silently)
@@ -171,7 +231,8 @@ export default function Planet3D({ slug }) {
     );
 
     const resize = () => {
-      const { clientWidth: w, clientHeight: h } = mount;
+      const w = mount.clientWidth || 300;
+      const h = mount.clientHeight || 300;
       renderer.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
@@ -188,6 +249,7 @@ export default function Planet3D({ slug }) {
       if (!dragging) return;
       velocity = (e.clientX - lastX) * 0.008;
       planet.rotation.y += velocity;
+      stars.rotation.y += velocity * 0.25;
       lastX = e.clientX;
     };
     const el = renderer.domElement;
@@ -196,8 +258,14 @@ export default function Planet3D({ slug }) {
     window.addEventListener("pointermove", move);
 
     let raf;
+    let t = 0;
     const loop = () => {
-      if (!dragging) planet.rotation.y += 0.0018 + velocity * 0.9;
+      t += 0.01;
+      if (!dragging) {
+        planet.rotation.y += 0.002 + velocity * 0.9;
+        stars.rotation.y += 0.0003;
+        stars.rotation.x += 0.0001;
+      }
       velocity *= 0.95;
       renderer.render(scene, camera);
       raf = requestAnimationFrame(loop);
@@ -214,11 +282,14 @@ export default function Planet3D({ slug }) {
         o.geometry?.dispose();
         o.material?.dispose?.();
       });
+      starTexture.dispose();
       texture.dispose();
       renderer.dispose();
-      mount.removeChild(el);
+      if (mount.contains(el)) {
+        mount.removeChild(el);
+      }
     };
   }, [slug]);
 
-  return <div className="planet-stage" ref={mountRef} />;
+  return <div className={className} ref={mountRef} />;
 }

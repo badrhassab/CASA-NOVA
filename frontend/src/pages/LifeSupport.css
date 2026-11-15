@@ -16,7 +16,7 @@
   min-height: 100svh;
   box-sizing: border-box;
   padding: 24px clamp(20px, 3.2vw, 60px) 72px;
-  background: var(--bg);
+  background: transparent;
   color: var(--text);
   text-align: left;
   font: 16px/1.5 "Inter Tight", system-ui, "Segoe UI", Roboto, sans-serif;
@@ -207,7 +207,8 @@
   border: 1px solid var(--line);
 }
 .ls-panel {
-  background: var(--card);
+  background: rgba(10, 13, 20, 0.92);
+  backdrop-filter: blur(4px);
   padding: 28px;
   display: flex;
   flex-direction: column;
@@ -215,7 +216,7 @@
   transition: background 0.3s;
 }
 .ls-panel:hover {
-  background: #0e1119;
+  background: rgba(14, 17, 25, 0.95);
 }
 .ls-panel header {
   display: flex;
