@@ -168,11 +168,12 @@ export default function LifeSupport() {
   }, [s]);
 
   // Ask the backend for the next second. If it is unreachable, simulate locally.
+  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
   useEffect(() => {
     const id = setInterval(async () => {
       try {
         const { data } = await axios.post(
-          `${import.meta.env.VITE_API_URL}/life-support/step/`,
+          `${apiBase}/life-support/step/`,
           { state: sRef.current, mode, scenario },
           { timeout: 800 }
         );

@@ -4,12 +4,14 @@ __pycache__/
 *$py.class
 *.sqlite3
 backend/venv/
-backend/.env
 venv/
 
 # Node & React
+node_modules/
 frontend/node_modules/
 frontend/dist/
+dist/
 frontend/.env.local
 .DS_Store
 Thumbs.db
+

@@ -1,0 +1,12 @@
+{
+  "name": "astroguard-casa-nova",
+  "private": true,
+  "version": "1.0.0",
+  "description": "AstroGuard - Autonomous Astronaut Health Monitoring System (NASA Space Apps)",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview",
+    "backend": "cd backend && python manage.py runserver"
+  }
+}

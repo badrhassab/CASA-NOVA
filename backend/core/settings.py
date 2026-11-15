@@ -63,17 +63,25 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# CONNEXION DIRECTE A LA BASE SUPABASE POSTGRESQL
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('SUPABASE_DB_NAME', 'postgres'),
-        'USER': os.getenv('SUPABASE_DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('SUPABASE_DB_PASSWORD', ''),
-        'HOST': os.getenv('SUPABASE_DB_HOST', 'db.yepykpbpdisfeojfrugb.supabase.co'),
-        'PORT': os.getenv('SUPABASE_DB_PORT', '5432'),
+# CONNEXION SUPABASE POSTGRESQL (AVEC FALLBACK SQLITE POUR TEST OFFLINE)
+if os.getenv('USE_SQLITE', 'False') == 'True' or not os.getenv('SUPABASE_DB_PASSWORD'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('SUPABASE_DB_NAME', 'postgres'),
+            'USER': os.getenv('SUPABASE_DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('SUPABASE_DB_PASSWORD', ''),
+            'HOST': os.getenv('SUPABASE_DB_HOST', 'db.yepykpbpdisfeojfrugb.supabase.co'),
+            'PORT': os.getenv('SUPABASE_DB_PORT', '5432'),
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
