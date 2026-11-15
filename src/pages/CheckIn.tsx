@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import gsap from 'gsap';
 import { Header } from '../components/Header';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getAllDays, saveCheckin } from '../db/queries';
+import { getAllDays, addOrUpdateDay } from '../db/queries';
 import { BASELINE, computeScores, STATUS_COLORS } from '../lib/scoring';
 import { CornerButton } from '../checkin/components/CornerButton';
 import { QuestionRenderer } from '../checkin/components/QuestionRenderer';
@@ -37,24 +37,34 @@ function prefersReducedMotion(): boolean {
 export const CheckIn: React.FC = () => {
   const [searchParams] = useSearchParams();
   // Pre-selected daily answers from seeded PRNG
-  const rows = useLiveQuery(getAllDays, [], []);
-  const lastDay = Math.max(0, ...rows.map((row) => row.day));
-  const [missionDay, setMissionDay] = useState(() => Math.max(0, Number(searchParams.get('day')) || 0));
-  const storedRow = rows.find((row) => row.day === missionDay);
-  const previousRow = rows.find((row) => row.day === missionDay - 1);
+  const rows = useLiveQuery(getAllDays);
+  const dayRows = rows ?? [];
+  const lastDay = dayRows.length ? Math.max(...dayRows.map((row) => row.day)) : -1;
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  useEffect(() => {
+    if (rows === undefined || selectedDay !== null) return;
+    const requestedDay = Number(searchParams.get('day'));
+    const initialDay = searchParams.has('day') && Number.isInteger(requestedDay) && requestedDay >= 0 && requestedDay <= lastDay + 1
+      ? requestedDay
+      : lastDay + 1;
+    setSelectedDay(initialDay);
+  }, [rows, selectedDay, searchParams, lastDay]);
+  const day = selectedDay;
+  const storedRow = day === null ? undefined : dayRows.find((row) => row.day === day);
+  const previousRow = day === null ? undefined : dayRows.find((row) => row.day === day - 1);
   const dailyDefaults = useMemo(() => {
     if (storedRow) return storedRow.answers;
-    const seed = missionDay + 0x9e3779b9;
+    const seed = (day ?? 0) + 0x9e3779b9;
     const noise = (offset: number) => {
       let value = (seed + offset) | 0;
       value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
       value = Math.imul(value ^ (value >>> 16), 0x45d9f3b);
       return ((value ^ (value >>> 16)) >>> 0) / 4294967296 - 0.5;
     };
-    const baseAnswers = previousRow?.answers ?? rows[rows.length - 1]?.answers;
+    const baseAnswers = previousRow?.answers ?? dayRows[dayRows.length - 1]?.answers;
     const sensors = { ...BASELINE, hr: Math.round(BASELINE.hr + noise(1) * 4), hrv: Math.round(BASELINE.hrv + noise(2) * 4), spo2: Math.round(BASELINE.spo2 + noise(3)), temperature: Number((BASELINE.temperature + noise(4) * 0.2).toFixed(1)), weight: Number((BASELINE.weight + noise(5) * 0.4).toFixed(1)), sleepHours: Number((BASELINE.sleepHours + noise(6) * 0.4).toFixed(1)), resistanceMin: BASELINE.resistanceMin, cardioMin: BASELINE.cardioMin, radiationMSv: BASELINE.radiationMSv };
     return { ...(baseAnswers ?? { sleepQuality: 8, morningFatigue: 3, trainingSession: 'Done' as const, jointPain: 0, painZones: [], facePuffiness: 'none' as const, headache: 'none' as const, blurredVision: 'no' as const, dizziness: 'no' as const, immuneSymptoms: ['None'], solarParticleEvent: 'no' as const, mood: 8, stress: 3, motivation: 8, socialContact: 'normal' as const, reactionMs: 250, notes: '' }), ...sensors };
-  }, [storedRow, previousRow, missionDay, rows]);
+  }, [storedRow, previousRow, day, dayRows]);
 
   const [answers, setAnswers] = useState<CheckInAnswers>(() => ({ ...dailyDefaults }));
   const [sectionIndex, setSectionIndex] = useState(0);
@@ -83,6 +93,12 @@ export const CheckIn: React.FC = () => {
 
   useEffect(() => setReady(true), []);
 
+  useEffect(() => {
+    if (day === null) return;
+    setAnswers({ ...dailyDefaults });
+    setEditedFields(new Set());
+  }, [day, dailyDefaults]);
+
   const sensors = useMemo(() => ({ hr: answers.hr, hrv: storedRow?.sensors.hrv ?? BASELINE.hrv, spo2: answers.spo2, temperature: answers.temperature, weight: answers.weight, sleepHours: answers.sleepHours, resistanceMin: answers.resistanceMin, cardioMin: answers.cardioMin, radiationMSv: answers.radiationMSv }), [answers, storedRow]);
   const scores = useMemo(() => computeScores(sensors, answers, BASELINE), [sensors, answers]);
   const twin = useMemo(() => ({ overall: scores.status, why: scores.why, domains: [scores.bone, scores.heart, scores.immune, scores.mind].map((d, i) => ({ ...d, domain: (['bone','heart','immune','mind'] as const)[i] })) }), [scores]);
@@ -106,11 +122,9 @@ export const CheckIn: React.FC = () => {
   }, [dailyDefaults]);
 
   const changeMissionDay = (day: number) => {
-    setMissionDay(day);
-    setAnswers({ ...dailyDefaults });
+    setSelectedDay(day);
     setSectionIndex(0);
     setPhase('sections');
-    setEditedFields(new Set());
   };
 
   const animating = useRef(false);
@@ -245,16 +259,24 @@ export const CheckIn: React.FC = () => {
 
   const skipSection = () => goNext();
 
+  const showToast = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 2800);
+  };
+
   const saveEntry = async () => {
+    console.log('SAVE CLICKED', selectedDay);
     try {
-      await saveCheckin(missionDay, sensors, answers);
+      if (selectedDay === null || !Number.isInteger(selectedDay) || selectedDay < 0 || selectedDay > lastDay + 1) {
+        throw new Error('Selected mission day is invalid.');
+      }
+      const n = await addOrUpdateDay(selectedDay, sensors, answers);
+      console.log('SAVED', selectedDay, n);
       setPhase('summary');
-      setToast(`Saved offline ✓ · Day ${missionDay} · W${Math.floor(missionDay / 7) + 1}`);
-      window.setTimeout(() => setToast(null), 2800);
+      showToast('Saved offline ✓ · Day ' + selectedDay + ' · W' + (Math.floor(selectedDay / 7) + 1));
     } catch (e) {
-      console.error(e);
-      setToast('Save failed');
-      window.setTimeout(() => setToast(null), 2800);
+      console.error('SAVE FAILED', e);
+      showToast('Save failed: ' + String(e));
     }
   };
 
@@ -295,9 +317,9 @@ export const CheckIn: React.FC = () => {
         style={{ maxWidth: 1280 }}
       >
         <div className="ck-mission-day">
-          <label htmlFor="mission-day" className="ck-mono">MISSION DAY <strong>{String(missionDay).padStart(3, '0')}</strong>{!storedRow && <span style={{ color: 'var(--orange)', marginLeft: 10 }}>NEW DAY</span>}</label>
-          <input id="mission-day" type="range" min="0" max={lastDay + 1} value={missionDay} onChange={(e) => changeMissionDay(Number(e.target.value))} aria-label="Mission day" />
-          <button type="button" className="ck-sync" onClick={() => { changeMissionDay(missionDay); setToast('Sensors synced ✓'); window.setTimeout(() => setToast(null), 1800); }}>↻ SYNC SENSORS</button>
+          <label htmlFor="mission-day" className="ck-mono">MISSION DAY <strong>{String(day ?? 0).padStart(3, '0')}</strong>{!storedRow && <span style={{ color: 'var(--orange)', marginLeft: 10 }}>NEW DAY</span>}</label>
+          <input id="mission-day" type="range" min="0" max={lastDay + 1} value={day ?? 0} disabled={day === null} onChange={(e) => changeMissionDay(Number(e.target.value))} aria-label="Mission day" />
+          <button type="button" className="ck-sync" onClick={() => { changeMissionDay(day ?? 0); setToast('Sensors synced ✓'); window.setTimeout(() => setToast(null), 1800); }}>↻ SYNC SENSORS</button>
         </div>
 
         <div
@@ -582,7 +604,7 @@ export const CheckIn: React.FC = () => {
           }}
         >
           {toast}
-          {toast?.startsWith('Saved offline') && <Link to="/report" style={{ display: 'block', marginTop: 8, color: 'var(--fg)', textAlign: 'center' }}>View in Report →</Link>}
+          {toast?.startsWith('Saved offline') && <Link to={`/report?week=${Math.floor(selectedDay / 7)}`} style={{ display: 'block', marginTop: 8, color: 'var(--fg)', textAlign: 'center' }}>View in Report →</Link>}
         </div>
       )}
 
