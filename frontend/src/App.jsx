@@ -10,7 +10,7 @@ import { Planets } from './pages/Planets';
 import LifeSupport from './pages/LifeSupport';
 import { Missions } from './pages/Missions';
 import { Nutrition } from './pages/Nutrition';
-import { LoginPage } from './pages/LoginPage';
+import Login from './components/Login';
 import { initDatabase } from './db/db';
 
 export function App() {
@@ -41,14 +41,22 @@ export function App() {
     } catch {}
   };
 
+  // MANDATORY LOGIN GATE: Astronaut must authenticate first before entering the website
+  if (!currentAstronaut) {
+    return <Login onLoginSuccess={handleLogin} />;
+  }
+
   return (
     <BrowserRouter>
       <Routes>
         {/* Core Navigation Pages */}
-        <Route path="/" element={<Landing />} />
+        <Route
+          path="/"
+          element={<Landing currentAstronaut={currentAstronaut} onLogout={handleLogout} />}
+        />
         <Route path="/checkin" element={<CheckIn />} />
         <Route path="/twin" element={<Twin />} />
-        <Route path="/doctor" element={<Doctor />} />
+        <Route path="/doctor" element={<Doctor currentAstronaut={currentAstronaut} />} />
         <Route path="/planets" element={<Planets />} />
         <Route path="/lifesupport" element={<LifeSupport />} />
         <Route
@@ -72,16 +80,6 @@ export function App() {
         />
         <Route path="/report" element={<Report />} />
         <Route path="/scan" element={<Scan />} />
-        <Route
-          path="/login"
-          element={
-            <LoginPage
-              currentAstronaut={currentAstronaut}
-              onLoginSuccess={handleLogin}
-              onLogout={handleLogout}
-            />
-          }
-        />
 
         {/* Alias routes */}
         <Route path="/daily-check-in" element={<Navigate to="/checkin" replace />} />
@@ -89,6 +87,7 @@ export function App() {
         <Route path="/ai-doctor" element={<Navigate to="/doctor" replace />} />
         <Route path="/life-support" element={<Navigate to="/lifesupport" replace />} />
         <Route path="/destinations" element={<Navigate to="/planets" replace />} />
+        <Route path="/login" element={<Navigate to="/" replace />} />
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />

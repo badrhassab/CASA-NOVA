@@ -22,11 +22,25 @@ export default function Login({ onLoginSuccess }) {
     } catch (loginError) {
       setError(
         loginError.response?.data?.error ||
-        'Unable to reach mission control. Check that the server is running.'
+        'Unable to reach mission control. Check that the Django backend is running.'
       );
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleQuickDemo = () => {
+    onLoginSuccess({
+      id: 'AST-001',
+      full_name: 'Commander Alex Rivera',
+      callsign: 'ARES-LEAD',
+      role: 'Mission Commander',
+      email: 'a.rivera@nasa.gov',
+      blood_type: 'O-',
+      radiation_accumulated_msv: 42.5,
+      baseline_bone_density_tscore: 0.5,
+      access_token: 'demo-token-alex-rivera',
+    });
   };
 
   return (
@@ -45,7 +59,7 @@ export default function Login({ onLoginSuccess }) {
         </div>
         <div className="hidden items-center gap-3 font-mono text-[10px] uppercase tracking-[0.18em] text-slate-400 sm:flex">
           <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,.7)]" />
-          Crew access
+          Crew access required
         </div>
         <span className="font-mono text-[9px] tracking-[0.2em] text-slate-600">V 1.0</span>
       </header>
@@ -58,7 +72,7 @@ export default function Login({ onLoginSuccess }) {
               <div>
                 <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-orange-400">01 / Authorization</p>
                 <h2 className="mt-3 font-hud text-2xl font-semibold uppercase tracking-wide text-white">Crew sign in</h2>
-                <p className="mt-1 text-xs text-slate-500">Use your registered full name and password.</p>
+                <p className="mt-1 text-xs text-slate-500">Authenticate to enter the AstroGuard Mission System.</p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center border border-orange-500/25 bg-orange-500/[0.06] text-orange-300">
                 <LockKeyhole className="h-4 w-4" />
@@ -83,7 +97,7 @@ export default function Login({ onLoginSuccess }) {
                     autoComplete="username"
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
-                    placeholder="As listed in the astronaut registry"
+                    placeholder="e.g. Commander Alex Rivera"
                     className="w-full border border-white/10 bg-black/55 py-3 pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-orange-500/70 focus:bg-black/80"
                     required
                   />
@@ -114,6 +128,16 @@ export default function Login({ onLoginSuccess }) {
                 {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}
               </button>
             </form>
+
+            <div className="mt-5 pt-4 border-t border-white/10 text-center">
+              <button
+                type="button"
+                onClick={handleQuickDemo}
+                className="text-[11px] font-mono uppercase tracking-wider text-slate-400 hover:text-orange-400 underline underline-offset-4 transition-colors"
+              >
+                ⚡ Quick Demo Crew Access (Commander Alex Rivera)
+              </button>
+            </div>
 
             <div className="mt-7 flex items-center justify-between border-t border-white/10 pt-4 font-mono text-[9px] uppercase tracking-[0.14em] text-slate-600">
               <span>Authorized crew only</span><span>HRP / 01</span>

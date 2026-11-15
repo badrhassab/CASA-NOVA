@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 // ─── Nav definition ──────────────────────────────────────────────────────────
@@ -16,7 +16,6 @@ const QUICK_LINKS = [
   { label: 'planets',      path: '/planets'     },
   { label: 'life support', path: '/lifesupport' },
   { label: 'report',       path: '/report'      },
-  { label: 'login',        path: '/login'       },
 ] as const;
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -24,10 +23,31 @@ const QUICK_LINKS = [
 interface HeaderProps {
   /** Extra className forwarded to the outer <header> */
   className?: string;
+  onLogout?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
+export const Header: React.FC<HeaderProps> = ({ className = '', onLogout }) => {
   const { pathname } = useLocation();
+  const [crew, setCrew] = useState<any>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('astroguard_user');
+      if (saved) setCrew(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  const handleLogoutClick = () => {
+    try {
+      localStorage.removeItem('astroguard_user');
+    } catch {}
+    if (onLogout) {
+      onLogout();
+    } else {
+      window.location.href = '/';
+      window.location.reload();
+    }
+  };
 
   return (
     <header
@@ -81,18 +101,27 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
         })}
       </nav>
 
-      {/* ── Top-Right: Badge + Quick links ─────────────────────────────── */}
-      <div className="gs-header-right flex flex-col items-end gap-0.5">
-        {/* Offline ready badge */}
+      {/* ── Top-Right: Crew Badge + Quick links + Logout ───────────────── */}
+      <div className="gs-header-right flex flex-col items-end gap-1">
+        {/* Offline ready badge & Active crew */}
         <div
-          className="flex items-center gap-1.5 mb-2"
-          style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--muted, #8A8A86)', fontSize: 13 }}
+          className="flex items-center gap-2 mb-1"
+          style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--muted, #8A8A86)', fontSize: 12 }}
         >
           <span
             className="w-1.5 h-1.5 rounded-full animate-pulse"
             style={{ backgroundColor: '#10B981' }}
           />
-          <span className="uppercase tracking-wider">OFFLINE READY</span>
+          <span className="uppercase tracking-wider">
+            {crew ? `CREW: ${crew.callsign || crew.full_name?.split(' ')[0]}` : 'OFFLINE READY'}
+          </span>
+          <button
+            onClick={handleLogoutClick}
+            title="Log out of current astronaut session"
+            className="ml-2 text-[10px] uppercase tracking-wider text-rose-400 hover:text-rose-300 border border-rose-500/30 hover:border-rose-400/60 px-1.5 py-0.5 rounded transition-all"
+          >
+            Logout
+          </button>
         </div>
 
         {/* Stacked quick links */}
