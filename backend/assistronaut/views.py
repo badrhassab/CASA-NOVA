@@ -69,14 +69,27 @@ def chat_view(request):
     data = serializer.validated_data
     conversation_id = data.get('conversation_id') or str(uuid.uuid4())
 
-    # Dynamically pull from Supabase / Django ORM if context is not explicitly passed
-    astronaut_ctx = data.get('astronaut_context')
-    if not astronaut_ctx:
-        target_id = data.get('astronaut_id')
-        astronaut_ctx = get_astronaut_context_from_db(
-            astronaut_id=target_id,
-            user=request.user if getattr(request, 'user', None) and request.user.is_authenticated else None
-        )
+    # Dynamically pull live astronaut row & health measurements from Supabase
+    target_id = data.get('astronaut_id')
+    raw_ctx = data.get('astronaut_context') or {}
+    if not target_id and isinstance(raw_ctx, dict):
+        target_id = raw_ctx.get('id') or raw_ctx.get('callsign') or raw_ctx.get('full_name')
+
+    # Always query Supabase for the real astronaut records unless caller provided a full mock
+    db_ctx = get_astronaut_context_from_db(
+        astronaut_id=target_id,
+        user=request.user if getattr(request, 'user', None) and request.user.is_authenticated else None
+    )
+
+    if db_ctx and db_ctx.get('data_source') in ('supabase', 'django_orm'):
+        astronaut_ctx = db_ctx
+        # Merge any caller-reported temporary symptoms
+        if isinstance(raw_ctx, dict) and raw_ctx.get('health_data', {}).get('reported_symptoms'):
+            astronaut_ctx.setdefault('health_data', {})['reported_symptoms'] = raw_ctx['health_data']['reported_symptoms']
+    elif isinstance(raw_ctx, dict) and raw_ctx.get('health_data'):
+        astronaut_ctx = raw_ctx
+    else:
+        astronaut_ctx = db_ctx or raw_ctx or {}
 
     try:
         engine = get_engine()

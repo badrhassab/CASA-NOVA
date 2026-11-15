@@ -53,10 +53,11 @@ export const sendMessage = async (
     conversation_id: conversationId,
   };
 
+  if (astronautId) {
+    payload.astronaut_id = astronautId;
+  }
   if (astronautContext) {
     payload.astronaut_context = astronautContext;
-  } else if (astronautId) {
-    payload.astronaut_id = astronautId;
   }
 
   const response = await axios.post<ChatResponse>(`${API_BASE_URL}/chat/`, payload);

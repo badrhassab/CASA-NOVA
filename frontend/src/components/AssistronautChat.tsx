@@ -7,10 +7,10 @@ import {
   CheckCircle2,
   ChevronRight,
   Compass,
-  CornerDownLeft,
   Cpu,
   Database,
   Dna,
+  ExternalLink,
   Heart,
   HelpCircle,
   Radio,
@@ -19,16 +19,17 @@ import {
   ShieldCheck,
   Sparkles,
   UserRound,
-  Wind
+  Wind,
+  Zap,
 } from 'lucide-react';
-import { sendMessage, SAMPLE_ASTRONAUT_CONTEXT } from '../services/assistronaut';
+import { sendMessage, fetchAstronautContext, SAMPLE_ASTRONAUT_CONTEXT } from '../services/assistronaut';
 import type { AstronautContext, ChatMessage, SourceReference } from '../types/assistronaut';
 
 const QUICK_PROMPTS = [
-  'Is my bone loss within flight limits?',
-  'Check cabin CO2 effect on intracranial pressure',
+  'Review my current bone density loss and T-score',
+  'Assess my accumulated radiation dose against limits',
+  'Check ECLSS cabin oxygen and pressure status',
   'Recommend exercise countermeasures for microgravity',
-  'Assess radiation dose against the 600 mSv career limit',
 ];
 
 interface AssistronautChatProps {
@@ -46,31 +47,75 @@ export const AssistronautChat: React.FC<AssistronautChatProps> = ({ currentAstro
     }
   });
 
+  const [liveContext, setLiveContext] = useState<any>(null);
+  const [contextLoading, setContextLoading] = useState<boolean>(true);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (propAstronaut) setAstronaut(propAstronaut);
   }, [propAstronaut]);
 
-  const activeName = astronaut?.full_name || 'Commander Alex Rivera';
-  const activeCallsign = astronaut?.callsign || 'ARES-LEAD';
-  const activeRole = astronaut?.role || 'Mission Commander';
+  // Fetch real astronaut telemetry & health profile from Supabase
+  useEffect(() => {
+    let isMounted = true;
+    const loadContext = async () => {
+      setContextLoading(true);
+      try {
+        const idToQuery = astronaut?.id || astronaut?.callsign || astronaut?.full_name || 'bbbb2222-bbbb-2222-bbbb-222222222222';
+        const ctx = await fetchAstronautContext(idToQuery);
+        if (isMounted && ctx) {
+          setLiveContext(ctx);
+          const crewName = ctx.name || astronaut?.full_name || 'Crew Member';
+          const callsign = ctx.callsign || astronaut?.callsign || 'DOC-EAGLE';
+          const missionName = ctx.mission?.name || 'Expedition I';
+          const destination = ctx.mission?.destination || 'Moon (Artemis Base)';
+          const hr = ctx.health_data?.vital_signs?.split(',')[0]?.replace('HR:', '').trim() || '62 bpm';
+          const boneLoss = ctx.health_data?.bone_density_loss_pct || '0.3%';
+          const rad = ctx.health_data?.radiation_accumulated_msv || '38.4 mSv';
+
+          setMessages([
+            {
+              role: 'assistant',
+              content: `Greetings, ${crewName} [${callsign}]. I am Assistronaut, your autonomous Clinical Decision Support Copilot for ${missionName} on ${destination}.\n\nI have established a direct telemetry link to your Supabase medical record (Resting HR: ${hr}, Bone loss: ${boneLoss}, Radiation dose: ${rad}). All countermeasures conform to NASA Human Research Program (HRP) flight standards. How may I assist your medical operations today?`,
+              intent: 'general_health',
+              suggested_followup: [
+                'Is my current bone density loss acceptable?',
+                'How does microgravity affect immune T-cell response?',
+                'Verify our current ECLSS cabin oxygen level',
+              ],
+            },
+          ]);
+        }
+      } catch (err) {
+        console.warn('Could not load live astronaut telemetry:', err);
+      } finally {
+        if (isMounted) setContextLoading(false);
+      }
+    };
+
+    loadContext();
+    return () => {
+      isMounted = false;
+    };
+  }, [astronaut?.id, astronaut?.callsign]);
+
+  const activeName = liveContext?.name || astronaut?.full_name || 'rachid';
+  const activeCallsign = liveContext?.callsign || astronaut?.callsign || 'Doc-Eagle';
+  const activeRole = liveContext?.role || astronaut?.role || 'Médecin de Bord / EVA Lead';
+  const activeMission = liveContext?.mission?.name || 'Expedition I';
+  const activeDestination = liveContext?.mission?.destination || 'Lune - Cratère Shackleton';
+  const isSupabaseLive = liveContext?.data_source === 'supabase' || liveContext?.data_source === 'django_orm';
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: `Greetings, ${activeName}. I am Assistronaut, your autonomous Clinical Decision Support copilot.\n\nI am monitoring your biometric telemetry, radiation dosimetry, and cabin environmental controls for long-duration transit. All countermeasures conform to NASA Human Research Program (HRP) flight standards. How may I assist your medical operations today?`,
+      content: `Greetings, ${activeName}. Initializing Assistronaut telemetry interface...`,
       intent: 'general_health',
-      suggested_followup: [
-        'Is my current bone density loss acceptable?',
-        'How does microgravity affect immune T-cell response?',
-        'Verify our current ECLSS cabin oxygen level',
-      ],
     },
   ]);
-
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -90,8 +135,8 @@ export const AssistronautChat: React.FC<AssistronautChatProps> = ({ currentAstro
         text,
         messages,
         conversationId,
-        astronaut || SAMPLE_ASTRONAUT_CONTEXT,
-        astronaut?.id || 'AST-001'
+        liveContext || astronaut || SAMPLE_ASTRONAUT_CONTEXT,
+        liveContext?.id || astronaut?.id || astronaut?.callsign || 'Doc-Eagle'
       );
 
       if (!conversationId && data.conversation_id) {
@@ -126,109 +171,121 @@ export const AssistronautChat: React.FC<AssistronautChatProps> = ({ currentAstro
   };
 
   return (
-    <div className="w-full flex-1 flex flex-col lg:flex-row gap-5 items-stretch">
-      {/* ── Left Telemetry Sidebar ────────────────────────────────────────── */}
-      <aside className="w-full lg:w-80 shrink-0 flex flex-col gap-4">
-        {/* Crew Identity Card */}
-        <div className="border border-white/10 bg-[#090b0c]/90 p-5 relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-orange-500 via-orange-400 to-transparent" />
-          <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.2em] text-slate-500 mb-3">
-            <span>■ CREW TELEMETRY</span>
-            <span className="text-emerald-400 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              ONLINE
-            </span>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 border border-orange-500/30 bg-orange-500/10 flex items-center justify-center text-orange-400 font-mono text-xs font-bold shrink-0">
-              {activeCallsign.slice(0, 2)}
+    <div className="w-full flex-1 flex flex-col gap-4 text-[#F2F2F0]">
+      {/* ── TOP HUD TELEMETRY BAR (Connected to Supabase) ──────────────────── */}
+      <div className="border border-white/[0.08] bg-[#070809]/95 p-4 sm:p-5 relative overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#FF5A1F] via-[#FF5A1F]/40 to-transparent" />
+        
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Crew and Mission Header */}
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 border border-[#FF5A1F]/30 bg-[#FF5A1F]/10 flex items-center justify-center font-mono text-xs font-bold text-[#FF5A1F] shrink-0">
+              {activeCallsign.slice(0, 2).toUpperCase()}
             </div>
-            <div className="min-w-0">
-              <h3 className="font-hud text-base font-bold text-white uppercase truncate">{activeName}</h3>
-              <p className="font-mono text-[10px] text-slate-400 tracking-wider">CALLSIGN: {activeCallsign}</p>
-              <p className="font-mono text-[9px] text-orange-400/90 tracking-wider mt-0.5 uppercase">{activeRole}</p>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-hud text-base font-bold text-white uppercase tracking-tight">
+                  {activeName}
+                </span>
+                <span className="font-mono text-[9px] px-1.5 py-0.5 border border-white/10 bg-white/[0.04] text-zinc-400 uppercase">
+                  {activeCallsign}
+                </span>
+              </div>
+              <p className="font-mono text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5">
+                {activeRole} · <span className="text-zinc-300">{activeMission}</span> ({activeDestination})
+              </p>
+            </div>
+          </div>
+
+          {/* Live Telemetry Chips from Supabase */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="border border-white/[0.06] bg-black/50 px-3 py-1.5 flex items-center gap-2">
+              <Heart className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+              <div>
+                <div className="font-mono text-[8px] uppercase tracking-widest text-zinc-500">HEART RATE</div>
+                <div className="font-mono text-xs font-semibold text-white">
+                  {liveContext?.health_data?.vital_signs?.split(',')[0]?.replace('HR:', '').trim() || '62 bpm'}
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-white/[0.06] bg-black/50 px-3 py-1.5 flex items-center gap-2">
+              <Bone className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+              <div>
+                <div className="font-mono text-[8px] uppercase tracking-widest text-zinc-500">BONE T-SCORE</div>
+                <div className="font-mono text-xs font-semibold text-white">
+                  {liveContext?.health_data?.baseline_bone_density_tscore || '+1.3'}
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-white/[0.06] bg-black/50 px-3 py-1.5 flex items-center gap-2">
+              <Dna className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+              <div>
+                <div className="font-mono text-[8px] uppercase tracking-widest text-zinc-500">BONE LOSS</div>
+                <div className="font-mono text-xs font-semibold text-orange-400">
+                  {liveContext?.health_data?.bone_density_loss_pct || '0.3%'}
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-white/[0.06] bg-black/50 px-3 py-1.5 flex items-center gap-2">
+              <Zap className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+              <div>
+                <div className="font-mono text-[8px] uppercase tracking-widest text-zinc-500">RAD ACCUMULATED</div>
+                <div className="font-mono text-xs font-semibold text-white">
+                  {liveContext?.health_data?.radiation_accumulated_msv || '38.4 mSv'}
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-white/[0.06] bg-black/50 px-3 py-1.5 flex items-center gap-2">
+              <Wind className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+              <div>
+                <div className="font-mono text-[8px] uppercase tracking-widest text-zinc-500">CABIN O₂ / SUIT</div>
+                <div className="font-mono text-xs font-semibold text-white">
+                  {liveContext?.eclss?.cabin_oxygen_pct || '21.05'}% · {liveContext?.eclss?.suit_oxygen_reserve_pct || '96.4'}%
+                </div>
+              </div>
+            </div>
+
+            {/* Supabase status badge */}
+            <div className="border border-emerald-500/20 bg-emerald-500/[0.05] px-3 py-1.5 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <div>
+                <div className="font-mono text-[8px] uppercase tracking-widest text-emerald-500/80">DATABASE</div>
+                <div className="font-mono text-[10px] font-semibold text-emerald-400 uppercase">
+                  {isSupabaseLive ? 'SUPABASE SYNCED' : 'INITIALIZING'}
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Live Biometrics Summary */}
-        <div className="border border-white/10 bg-[#090b0c]/90 p-5 flex flex-col gap-3.5">
-          <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-slate-500 pb-2 border-b border-white/10 flex items-center justify-between">
-            <span>PHYSIOLOGICAL STATUS</span>
-            <Activity className="h-3.5 w-3.5 text-orange-400" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="border border-white/5 bg-white/[0.02] p-2.5">
-              <span className="font-mono text-[9px] text-slate-500 uppercase flex items-center gap-1">
-                <Heart className="h-3 w-3 text-rose-400" /> Heart Rate
-              </span>
-              <div className="font-mono text-sm font-semibold text-white mt-1">62 <span className="text-[10px] text-slate-400 font-normal">BPM</span></div>
-            </div>
-            <div className="border border-white/5 bg-white/[0.02] p-2.5">
-              <span className="font-mono text-[9px] text-slate-500 uppercase flex items-center gap-1">
-                <Bone className="h-3 w-3 text-amber-400" /> T-Score
-              </span>
-              <div className="font-mono text-sm font-semibold text-white mt-1">+1.15 <span className="text-[10px] text-emerald-400 font-normal">Normal</span></div>
-            </div>
-            <div className="border border-white/5 bg-white/[0.02] p-2.5">
-              <span className="font-mono text-[9px] text-slate-500 uppercase flex items-center gap-1">
-                <Dna className="h-3 w-3 text-purple-400" /> Bone Loss
-              </span>
-              <div className="font-mono text-sm font-semibold text-white mt-1">0.45% <span className="text-[10px] text-slate-400 font-normal">/ mo</span></div>
-            </div>
-            <div className="border border-white/5 bg-white/[0.02] p-2.5">
-              <span className="font-mono text-[9px] text-slate-500 uppercase flex items-center gap-1">
-                <Wind className="h-3 w-3 text-sky-400" /> Cabin O₂
-              </span>
-              <div className="font-mono text-sm font-semibold text-white mt-1">20.9% <span className="text-[10px] text-emerald-400 font-normal">101.3 kPa</span></div>
-            </div>
-          </div>
-
-          {/* Adherence Bar */}
-          <div className="pt-2 border-t border-white/5">
-            <div className="flex justify-between font-mono text-[9px] uppercase tracking-wider text-slate-400 mb-1.5">
-              <span>Countermeasure Adherence</span>
-              <span className="text-orange-400">85%</span>
-            </div>
-            <div className="h-1 bg-white/10 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-orange-600 to-orange-400" style={{ width: '85%' }} />
-            </div>
-            <p className="font-mono text-[9px] text-slate-500 mt-1.5">ARED Resistive + Cycle Ergometer schedule</p>
-          </div>
-        </div>
-
-        {/* Clinical Protocol Badge */}
-        <div className="border border-white/10 bg-[#090b0c]/90 p-4 font-mono text-[10px] text-slate-400 leading-relaxed">
-          <div className="flex items-center gap-2 text-orange-400 mb-1 text-[11px] font-semibold uppercase tracking-wider">
-            <ShieldCheck className="h-4 w-4" /> NASA CDSS PROTOCOL
-          </div>
-          Continuous risk surveillance for SANS, microgravity osteopenia, immune dysregulation, and high-LET cosmic radiation.
-        </div>
-      </aside>
-
-      {/* ── Main Chat Terminal ───────────────────────────────────────────── */}
-      <section className="flex-1 flex flex-col border border-white/10 bg-[#090b0c]/90 min-h-[580px] lg:min-h-[640px] relative overflow-hidden">
-        {/* Terminal Header */}
-        <div className="px-5 py-3.5 border-b border-white/10 bg-black/40 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Cpu className="h-4 w-4 text-orange-400" />
-            <span className="font-mono text-xs uppercase tracking-[0.16em] text-white font-semibold">
-              ASSISTRONAUT COGNITIVE ENGINE
+      {/* ── MAIN NASA CHAT TERMINAL ──────────────────────────────────────── */}
+      <section className="flex-1 flex flex-col border border-white/[0.08] bg-[#070809]/95 min-h-[580px] lg:min-h-[640px] relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
+        {/* Terminal Header Bar */}
+        <div className="px-5 py-3 border-b border-white/[0.08] bg-black/60 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="w-2 h-2 bg-[#FF5A1F]" />
+            <span className="font-mono text-xs uppercase tracking-[0.18em] text-white font-semibold">
+              ASSISTRONAUT CLINICAL DECISION SUPPORT TERMINAL
             </span>
-            <span className="font-mono text-[9px] px-2 py-0.5 border border-orange-500/30 bg-orange-500/10 text-orange-300">
-              NASA HRP v1.0
+            <span className="font-mono text-[9px] px-2 py-0.5 border border-[#FF5A1F]/30 bg-[#FF5A1F]/10 text-orange-300 uppercase">
+              NASA HRP STANDARDS
             </span>
           </div>
-          <div className="hidden sm:flex items-center gap-3 font-mono text-[10px] text-slate-500">
-            <span>MODEL: GPT-OSS-120B</span>
+
+          <div className="hidden sm:flex items-center gap-3 font-mono text-[10px] text-zinc-500">
+            <span>MODEL: GPT-OSS-120B / GROQ</span>
             <span>·</span>
-            <span className="text-emerald-400">LATENCY: 240ms</span>
+            <span className="text-emerald-400">CDSS ACTIVE</span>
           </div>
         </div>
 
         {/* Message Stream */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 font-sans text-sm">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 font-sans text-sm">
           {messages.map((msg, idx) => {
             const isUser = msg.role === 'user';
             return (
@@ -236,118 +293,159 @@ export const AssistronautChat: React.FC<AssistronautChatProps> = ({ currentAstro
                 key={idx}
                 className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-3xl ${
                   isUser ? 'ml-auto' : 'mr-auto'
-                }`}
+                } w-full`}
               >
-                {/* Meta header */}
-                <div className="font-mono text-[9px] uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-2">
-                  <span>{isUser ? activeCallsign : 'ASSISTRONAUT COPILOT'}</span>
+                {/* Technical Meta Header */}
+                <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-zinc-500 mb-1.5 flex items-center gap-2">
+                  <span className={isUser ? 'text-orange-400' : 'text-zinc-400'}>
+                    {isUser ? `CREW // ${activeCallsign.toUpperCase()}` : 'ASSISTRONAUT COPILOT // NASA CDSS'}
+                  </span>
                   {msg.intent && !isUser && (
-                    <span className="px-1.5 py-0.5 border border-orange-500/20 bg-orange-500/5 text-orange-300 text-[8px]">
+                    <span className="px-1.5 py-0.2 border border-white/10 bg-white/[0.03] text-zinc-400 text-[8px]">
                       {msg.intent.replace('_', ' ').toUpperCase()}
+                    </span>
+                  )}
+                  {msg.escalation_flag && (
+                    <span className="px-1.5 py-0.2 border border-rose-500/30 bg-rose-500/10 text-rose-300 text-[8px] flex items-center gap-1 font-bold">
+                      <AlertTriangle className="h-2.5 w-2.5" /> CLINICAL ESCALATION
                     </span>
                   )}
                 </div>
 
-                {/* Message body */}
+                {/* Message Body */}
                 <div
-                  className={`p-4 leading-relaxed whitespace-pre-wrap border ${
+                  className={`w-full p-4 sm:p-5 leading-relaxed whitespace-pre-wrap border ${
                     isUser
-                      ? 'bg-orange-500/10 border-orange-500/40 text-white'
-                      : 'bg-[#050607] border-white/10 text-slate-200'
+                      ? 'bg-[#FF5A1F]/[0.08] border-[#FF5A1F]/40 text-white rounded-none border-l-4 border-l-[#FF5A1F]'
+                      : 'bg-[#050505] border-white/[0.08] text-zinc-200 rounded-none border-l-4 border-l-zinc-600'
                   }`}
                   style={{ fontFamily: isUser ? "'Inter Tight', sans-serif" : "'Inter', sans-serif" }}
                 >
-                  {msg.content}
+                  <p className="text-[13px] sm:text-sm text-zinc-200 leading-relaxed font-light">{msg.content}</p>
 
-                  {/* Sources pill if provided */}
+                  {/* Escalation warning banner if flagged */}
+                  {msg.escalation_flag && msg.escalation_reason && (
+                    <div className="mt-3 p-3 border border-rose-500/30 bg-rose-950/20 text-rose-300 text-xs font-mono flex items-start gap-2">
+                      <ShieldAlert className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
+                      <div>
+                        <span className="font-bold uppercase tracking-wider block mb-0.5">Flight Surgeon Alert:</span>
+                        {msg.escalation_reason}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* NASA HRP / Evidence Citations */}
                   {msg.sources && msg.sources.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-white/10 flex flex-wrap items-center gap-2 font-mono text-[9px]">
-                      <span className="text-slate-500">CLINICAL REFERENCES:</span>
+                    <div className="mt-4 pt-3 border-t border-white/[0.06] flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-[9px] uppercase tracking-wider text-zinc-500 flex items-center gap-1">
+                        <Database className="h-3 w-3 text-orange-400" /> Evidence Citations:
+                      </span>
                       {msg.sources.map((src, sIdx) => (
                         <a
                           key={sIdx}
                           href={src.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-2 py-0.5 border border-white/15 bg-white/5 hover:border-orange-400 hover:text-orange-300 transition-colors text-slate-300"
+                          className="font-mono text-[9px] px-2 py-1 border border-white/10 bg-white/[0.02] text-zinc-300 hover:text-orange-400 hover:border-orange-400/40 transition-colors flex items-center gap-1"
                         >
-                          {src.title} ↗
+                          <span>{src.title}</span>
+                          <ExternalLink className="h-2.5 w-2.5 opacity-60" />
                         </a>
                       ))}
                     </div>
                   )}
-                </div>
 
-                {/* Suggested follow-ups */}
-                {msg.suggested_followup && msg.suggested_followup.length > 0 && !isUser && (
-                  <div className="mt-2.5 flex flex-wrap gap-2">
-                    {msg.suggested_followup.map((f, fIdx) => (
-                      <button
-                        key={fIdx}
-                        onClick={() => handleSend(f)}
-                        className="font-mono text-[10px] px-2.5 py-1 border border-white/10 hover:border-orange-500/60 bg-white/[0.02] hover:bg-orange-500/10 text-slate-400 hover:text-orange-200 transition-all text-left"
-                      >
-                        {f} →
-                      </button>
-                    ))}
-                  </div>
-                )}
+                  {/* Suggested Follow-up Questions */}
+                  {msg.suggested_followup && msg.suggested_followup.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-white/[0.06]">
+                      <span className="font-mono text-[9px] uppercase tracking-wider text-zinc-500 block mb-2">
+                        Suggested Clinical Follow-up:
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {msg.suggested_followup.map((q, qIdx) => (
+                          <button
+                            key={qIdx}
+                            onClick={() => handleSend(q)}
+                            disabled={loading}
+                            className="font-mono text-[10px] text-left px-2.5 py-1.5 border border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white hover:border-[#FF5A1F]/50 hover:bg-[#FF5A1F]/[0.06] transition-colors flex items-center gap-1.5"
+                          >
+                            <span className="text-[#FF5A1F] font-bold">0{qIdx + 1} /</span>
+                            <span>{q}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
 
+          {/* Typing / Reasoning Indicator */}
           {loading && (
-            <div className="flex items-center gap-2 text-orange-400 font-mono text-xs p-3 border border-orange-500/20 bg-orange-500/5 max-w-xs animate-pulse">
-              <span className="w-2 h-2 rounded-full bg-orange-400 animate-ping" />
-              Synthesizing NASA HRP clinical countermeasure...
+            <div className="flex items-center gap-3 p-4 border border-white/[0.06] bg-[#050505] max-w-md">
+              <span className="w-2 h-2 rounded-full bg-[#FF5A1F] animate-ping" />
+              <span className="font-mono text-xs uppercase tracking-wider text-zinc-400">
+                Assistronaut analyzing telemetry & NASA HRP database...
+              </span>
             </div>
           )}
+
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick Prompts Bar */}
-        <div className="px-4 py-2 border-t border-white/10 bg-black/30 flex items-center gap-2 overflow-x-auto select-none">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-slate-500 whitespace-nowrap">
-            QUICK PROMPTS:
-          </span>
+        {/* Tactical Quick Inquiry Buttons */}
+        <div className="px-4 py-2 border-t border-white/[0.06] bg-black/40 flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[9px] uppercase tracking-wider text-zinc-500 mr-1">QUICK INQUIRY:</span>
           {QUICK_PROMPTS.map((prompt, pIdx) => (
             <button
               key={pIdx}
               onClick={() => handleSend(prompt)}
-              className="font-mono text-[9px] uppercase px-2.5 py-1 border border-white/10 hover:border-orange-400 bg-white/[0.02] text-slate-400 hover:text-orange-300 transition-colors whitespace-nowrap"
+              disabled={loading}
+              className="font-mono text-[10px] px-2.5 py-1 border border-white/10 bg-white/[0.02] text-zinc-400 hover:text-white hover:border-[#FF5A1F]/40 hover:bg-white/[0.05] transition-colors"
             >
-              {prompt}
+              [ 0{pIdx + 1} / {prompt} ]
             </button>
           ))}
         </div>
 
-        {/* Command Input Area */}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
-          className="p-3 sm:p-4 border-t border-white/10 bg-black/60 flex items-center gap-2 sm:gap-3"
-        >
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Report symptoms, ask about countermeasures, or verify telemetry..."
-              className="w-full bg-[#050607] border border-white/15 px-4 py-3 font-mono text-xs sm:text-sm text-white placeholder:text-slate-600 outline-none focus:border-orange-500/80 transition-colors"
-              disabled={loading}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading || !input.trim()}
-            className="px-5 py-3 border border-orange-400 bg-orange-500 hover:bg-orange-400 text-black font-mono text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0"
+        {/* Command Terminal Input */}
+        <div className="p-4 border-t border-white/[0.08] bg-black/80">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+            className="flex items-center gap-3"
           >
-            <span>TRANSMIT</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        </form>
+            <div className="relative flex-1">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono text-sm text-[#FF5A1F]">
+                &gt;
+              </span>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Transmit medical inquiry, symptom report, or countermeasure query..."
+                disabled={loading}
+                className="w-full bg-black/60 border border-white/10 py-3 pl-8 pr-4 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-[#FF5A1F]/60 transition-colors font-mono"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              className="py-3 px-5 bg-[#FF5A1F] hover:bg-orange-600 disabled:opacity-40 disabled:hover:bg-[#FF5A1F] text-black font-mono font-bold text-xs uppercase tracking-wider transition-colors flex items-center gap-2 shrink-0 cursor-pointer"
+            >
+              <span>Transmit</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </form>
+
+          <div className="mt-2.5 flex items-center justify-between font-mono text-[9px] text-zinc-500 uppercase tracking-wider">
+            <span>NASA HRP CDSS · AUTONOMOUS MEDICAL OPERATIONS</span>
+            <span className="text-zinc-600">PRESS ENTER TO TRANSMIT</span>
+          </div>
+        </div>
       </section>
     </div>
   );

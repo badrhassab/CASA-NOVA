@@ -31,15 +31,15 @@ export default function Login({ onLoginSuccess }) {
 
   const handleQuickDemo = () => {
     onLoginSuccess({
-      id: 'AST-001',
-      full_name: 'Commander Alex Rivera',
-      callsign: 'ARES-LEAD',
-      role: 'Mission Commander',
-      email: 'a.rivera@nasa.gov',
-      blood_type: 'O-',
-      radiation_accumulated_msv: 42.5,
-      baseline_bone_density_tscore: 0.5,
-      access_token: 'demo-token-alex-rivera',
+      id: 'bbbb2222-bbbb-2222-bbbb-222222222222',
+      full_name: 'rachid',
+      callsign: 'Doc-Eagle',
+      role: 'Médecin de Bord / EVA Lead',
+      email: 'jonny.kim@nasa.gov',
+      blood_type: 'A+',
+      radiation_accumulated_msv: 38.4,
+      baseline_bone_density_tscore: 1.3,
+      access_token: 'demo-token-doc-eagle',
     });
   };
 
@@ -135,7 +135,7 @@ export default function Login({ onLoginSuccess }) {
                 onClick={handleQuickDemo}
                 className="text-[11px] font-mono uppercase tracking-wider text-slate-400 hover:text-orange-400 underline underline-offset-4 transition-colors"
               >
-                ⚡ Quick Demo Crew Access (Commander Alex Rivera)
+                ⚡ Quick Demo Crew Access (rachid · Doc-Eagle)
               </button>
             </div>
 
