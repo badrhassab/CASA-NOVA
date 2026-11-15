@@ -130,7 +130,7 @@ class HealthBiometricViewSet(viewsets.ModelViewSet):
             qs = qs.filter(astronaut_id=astronaut_id)
         return qs
 
-class FoodInventoryViewSet(viewsets.ModelViewSet):
+class FoodInventoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = FoodInventory.objects.all().order_by('item_name')
     serializer_class = FoodInventorySerializer
 
@@ -141,20 +141,33 @@ class FoodInventoryViewSet(viewsets.ModelViewSet):
             qs = qs.filter(category=category)
         return qs
 
-class DailyNutritionTargetViewSet(viewsets.ModelViewSet):
+class DailyNutritionTargetViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DailyNutritionTarget.objects.all()
     serializer_class = DailyNutritionTargetSerializer
 
-class MealLogViewSet(viewsets.ModelViewSet):
+    def get_queryset(self):
+        astronaut = get_authenticated_astronaut(self.request)
+        return super().get_queryset().filter(astronaut_id=astronaut.id) if astronaut else super().get_queryset().none()
+
+    def create(self, request, *args, **kwargs):
+        return Response({'error': 'Nutrition targets are managed by mission control.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def update(self, request, *args, **kwargs):
+        return Response({'error': 'Nutrition targets are managed by mission control.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    partial_update = update
+
+    def destroy(self, request, *args, **kwargs):
+        return Response({'error': 'Nutrition targets are managed by mission control.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+class MealLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = MealLog.objects.all().order_by('-logged_at')
     serializer_class = MealLogSerializer
 
     def get_queryset(self):
         qs = super().get_queryset()
-        astronaut_id = self.request.query_params.get('astronaut_id')
-        if astronaut_id:
-            qs = qs.filter(astronaut_id=astronaut_id)
-        return qs
+        astronaut = get_authenticated_astronaut(self.request)
+        return qs.filter(astronaut_id=astronaut.id) if astronaut else qs.none()
 
 class MedicalChatLogViewSet(viewsets.ModelViewSet):
     queryset = MedicalChatLog.objects.all().order_by('created_at')
@@ -214,61 +227,6 @@ def consult_medical_ai(request):
 # -----------------------------------------------------------------------------
 @api_view(['GET'])
 def get_nutrition_summary(request):
-    """
-    Calcule le total consommé aujourd'hui vs les objectifs individuels de l'astronaute
-    avec alerte pour le Sodium (SANS) et Calcium/Vitamine D.
-    """
-    astronaut_id = request.query_params.get('astronaut_id')
-    if not astronaut_id:
-        return Response({'error': 'astronaut_id is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Récupérer les repas consommés
-    logs = MealLog.objects.filter(astronaut_id=astronaut_id).select_related('food')
-    
-    total_cal = 0
-    total_prot = 0.0
-    total_water = 0
-    total_sod = 0.0
-    total_calcium = 0.0
-    total_vitd = 0.0
-
-    for l in logs:
-        p = float(l.portion_size)
-        total_cal += int(l.food.calories_kcal * p)
-        total_prot += float(l.food.protein_g) * p
-        total_water += l.water_consumed_ml
-        total_sod += float(l.food.sodium_mg) * p
-        total_calcium += float(l.food.calcium_mg) * p
-        total_vitd += float(l.food.vitamin_d_iu) * p
-
-    target = DailyNutritionTarget.objects.filter(astronaut_id=astronaut_id).first()
-    target_data = DailyNutritionTargetSerializer(target).data if target else {
-        'target_calories_kcal': 2800,
-        'target_protein_g': 110,
-        'target_water_ml': 2500,
-        'max_sodium_mg': 2000,
-        'target_calcium_mg': 1200,
-        'target_vitamin_d_iu': 1000,
-        'is_eva_day': False
-    }
-
-    gaps = []
-    if total_sod > float(target_data.get('max_sodium_mg', 2000)):
-        gaps.append("Alerte Sodium : apport supérieur au plafond. Risque accru d'hypertension intracrânienne SANS.")
-    if total_calcium < float(target_data.get('target_calcium_mg', 1200)) * 0.5:
-        gaps.append("Déficit en Calcium : protection osseuse compromise sous microgravité.")
-    if total_vitd < float(target_data.get('target_vitamin_d_iu', 1000)) * 0.5:
-        gaps.append("Déficit en Vitamine D3 : risque de dysrégulation immunitaire et résorption osseuse.")
-
-    return Response({
-        'consumed': {
-            'calories_kcal': total_cal,
-            'protein_g': round(total_prot, 1),
-            'water_ml': total_water,
-            'sodium_mg': round(total_sod, 1),
-            'calcium_mg': round(total_calcium, 1),
-            'vitamin_d_iu': round(total_vitd, 1)
-        },
-        'targets': target_data,
-        'gaps': gaps
-    })
+    """Backward-compatible name; identity is always taken from the session token."""
+    from .nutrition import nutrition_summary
+    return nutrition_summary(request)

@@ -95,6 +95,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # CORS Settings - Autorise le Frontend React (Vite 5173 / Localhost 3000)
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = [*default_headers, 'x-nutrition-date']
 
 # REST Framework settings
 REST_FRAMEWORK = {

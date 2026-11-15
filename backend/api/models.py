@@ -200,6 +200,30 @@ class MealLog(models.Model):
         managed = False
 
 
+class HydrationLog(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    astronaut = models.ForeignKey(Astronaut, on_delete=models.CASCADE, db_column='astronaut_id')
+    amount_ml = models.IntegerField()
+    logged_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'hydration_logs'
+        managed = False
+
+
+class NutritionReview(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    astronaut = models.ForeignKey(Astronaut, on_delete=models.CASCADE, db_column='astronaut_id')
+    nutrient = models.CharField(max_length=80, null=True, blank=True)
+    message = models.TextField(null=True, blank=True)
+    status = models.CharField(max_length=30, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'nutrition_reviews'
+        managed = False
+
+
 # -----------------------------------------------------------------------------
 # 10. MEDICAL CHAT LOGS (AI Clinical Decision Support)
 # -----------------------------------------------------------------------------

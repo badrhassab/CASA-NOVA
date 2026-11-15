@@ -25,17 +25,35 @@ export const getAstronautMissions = (accessToken) =>
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-// Étape 2 : Nutrition & Repas
-export const getFoodInventory = (category = 'ALL') => api.get(`food/?category=${category}`);
-export const getNutritionSummary = (astronautId) => api.get(`nutrition/summary/?astronaut_id=${astronautId}`);
-export const logMeal = (astronautId, foodId, mealType = 'DINNER', portion = 1.0, waterMl = 250) =>
-  api.post('meals/', {
-    astronaut_id: astronautId,
+// Étape 2 : Nutrition & Repas — identity comes only from the signed session token.
+const withAstronautSession = (accessToken, nutritionDate) => ({
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    ...(nutritionDate ? { 'X-Nutrition-Date': nutritionDate } : {}),
+  },
+});
+
+export const getFoodInventory = (category = 'ALL', accessToken, nutritionDate) =>
+  api.get(`nutrition/catalog/?category=${encodeURIComponent(category)}`, withAstronautSession(accessToken, nutritionDate));
+export const getNutritionSummary = (accessToken, nutritionDate) =>
+  api.get('nutrition/summary/', withAstronautSession(accessToken, nutritionDate));
+export const getNutritionRecommendations = (accessToken, nutritionDate) =>
+  api.get('nutrition/recommendations/', withAstronautSession(accessToken, nutritionDate));
+export const getNutritionDayAnalysis = (accessToken, nutritionDate) =>
+  api.get('nutrition/me/day-analysis/', withAstronautSession(accessToken, nutritionDate));
+export const logMeal = (foodId, mealType = 'DINNER', portion = 1.0, waterMl = 0, accessToken, nutritionDate) =>
+  api.post('nutrition/meals/', {
     food_id: foodId,
     portion_size: portion,
     meal_type: mealType,
     water_consumed_ml: waterMl
-  });
+  }, withAstronautSession(accessToken, nutritionDate));
+export const cancelMeal = (mealId, accessToken) =>
+  api.delete(`nutrition/meals/${encodeURIComponent(mealId)}/`, withAstronautSession(accessToken));
+export const logHydration = (amountMl, accessToken, nutritionDate) =>
+  api.post('nutrition/hydration/', { amount_ml: amountMl }, withAstronautSession(accessToken, nutritionDate));
+export const requestNutritionReview = (nutrient, message, accessToken) =>
+  api.post('nutrition/reviews/', { nutrient, message }, withAstronautSession(accessToken));
 
 // Étape 3 : Administration
 export const createAstronaut = (data) => api.post('astronauts/', data);

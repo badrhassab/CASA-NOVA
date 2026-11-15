@@ -5,7 +5,11 @@ from .views import (
     MissionCrewViewSet, EclssTelemetryViewSet, HealthBiometricViewSet,
     FoodInventoryViewSet, DailyNutritionTargetViewSet, MealLogViewSet,
     MedicalChatLogViewSet, astronaut_login, consult_medical_ai, get_astronaut_missions,
-    get_nutrition_summary
+)
+from .nutrition import (
+    nutrition_alerts, nutrition_catalog, nutrition_delete_meal,
+    nutrition_log_hydration, nutrition_log_meal, nutrition_recommendations,
+    nutrition_request_review, nutrition_summary, nutrition_day_analysis,
 )
 
 router = DefaultRouter()
@@ -25,5 +29,13 @@ urlpatterns = [
     path('ai/consult/', consult_medical_ai, name='consult-medical-ai'),
     path('auth/login/', astronaut_login, name='astronaut-login'),
     path('my-missions/', get_astronaut_missions, name='my-astronaut-missions'),
-    path('nutrition/summary/', get_nutrition_summary, name='nutrition-summary'),
+    path('nutrition/catalog/', nutrition_catalog, name='nutrition-catalog'),
+    path('nutrition/summary/', nutrition_summary, name='nutrition-summary'),
+    path('nutrition/alerts/', nutrition_alerts, name='nutrition-alerts'),
+    path('nutrition/recommendations/', nutrition_recommendations, name='nutrition-recommendations'),
+    path('nutrition/me/day-analysis/', nutrition_day_analysis, name='nutrition-day-analysis'),
+    path('nutrition/meals/', nutrition_log_meal, name='nutrition-log-meal'),
+    path('nutrition/meals/<uuid:meal_id>/', nutrition_delete_meal, name='nutrition-delete-meal'),
+    path('nutrition/hydration/', nutrition_log_hydration, name='nutrition-log-hydration'),
+    path('nutrition/reviews/', nutrition_request_review, name='nutrition-request-review'),
 ]

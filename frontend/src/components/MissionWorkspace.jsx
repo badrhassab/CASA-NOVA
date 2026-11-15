@@ -15,6 +15,7 @@ import {
   Target,
 } from 'lucide-react';
 import { getAstronautMissions } from '../services/api';
+import NutritionModule from './NutritionModule';
 
 const formatDate = (value, includeTime = false) => {
   if (!value) return '—';
@@ -156,10 +157,12 @@ export default function MissionWorkspace({ astronaut, onLogout }) {
             </span>
           </button>
 
-          <nav className="hidden items-center gap-3 font-hud text-xs font-medium uppercase tracking-wide md:flex">
+          <nav className="hidden items-center gap-2 font-hud text-[10px] font-medium uppercase tracking-wide lg:flex">
             <button onClick={() => setPage('home')} className={`transition ${page === 'home' ? 'text-white' : 'text-slate-500 hover:text-white'}`}>Home</button>
             <span className="h-1 w-1 rounded-full bg-orange-500" />
             <button onClick={() => setPage('missions')} className={`transition ${page === 'missions' ? 'text-white' : 'text-slate-500 hover:text-white'}`}>My missions</button>
+            <span className="h-1 w-1 rounded-full bg-orange-500" />
+            <button onClick={() => setPage('nutrition')} className={`transition ${page === 'nutrition' ? 'text-white' : 'text-slate-500 hover:text-white'}`}>Nutrition &amp; meal management</button>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -176,7 +179,9 @@ export default function MissionWorkspace({ astronaut, onLogout }) {
       </header>
 
       <main className="relative z-10 mx-auto max-w-[1500px] px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
-        {page === 'home' ? (
+        {page === 'nutrition' ? (
+          <NutritionModule astronaut={astronaut} onBack={() => setPage('home')} />
+        ) : page === 'home' ? (
           <section className="mx-auto grid min-h-[calc(100vh-170px)] w-full max-w-5xl items-center gap-10">
             <div className="relative py-4 lg:py-10">
               <p className="mb-5 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-300">
@@ -193,6 +198,9 @@ export default function MissionWorkspace({ astronaut, onLogout }) {
               <div className="mt-9 flex flex-wrap items-center gap-5">
                 <button onClick={() => setPage('missions')} className="group inline-flex items-center gap-4 bg-orange-500 px-5 py-3.5 font-hud text-xs font-bold uppercase tracking-[0.15em] text-[#120c07] transition hover:bg-orange-400">
                   My missions <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </button>
+                <button onClick={() => setPage('nutrition')} className="group inline-flex items-center gap-3 border border-orange-400/45 px-4 py-3.5 font-hud text-[10px] font-semibold uppercase tracking-[0.1em] text-orange-200 transition hover:border-orange-300 hover:bg-orange-500/10">
+                  Nutrition &amp; meal management <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
                 </button>
                 <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-slate-500">
                   {loading ? 'Checking assignments…' : error ? 'Assignment status unavailable' : `${missions.length} assigned · ${activeMissions} active`}
