@@ -230,3 +230,34 @@ def get_nutrition_summary(request):
     """Backward-compatible name; identity is always taken from the session token."""
     from .nutrition import nutrition_summary
     return nutrition_summary(request)
+
+# -----------------------------------------------------------------------------
+# ECLSS LIFE SUPPORT TELEMETRY
+# -----------------------------------------------------------------------------
+from .life_support import MODES, NUMERIC, SCENARIOS, START, step as life_support_step_fn
+
+@api_view(["GET"])
+def health(request):
+    return Response({"status": "ok", "project": "CASA-NOVA"})
+
+@api_view(["GET"])
+def life_support_start(request):
+    """Starting telemetry for a new session."""
+    return Response(START)
+
+@api_view(["POST"])
+def life_support_step(request):
+    """Body: {state, mode: cabin|eva, scenario: nominal|scrubber|leak}.
+    Returns the state one second later."""
+    mode = request.data.get("mode", "cabin")
+    scenario = request.data.get("scenario", "nominal")
+    if mode not in MODES or scenario not in SCENARIOS:
+        return Response({"error": "Invalid mode or scenario."}, status=400)
+    try:
+        raw = request.data["state"]
+        state = {k: float(raw[k]) for k in NUMERIC}
+        state["hist"] = [float(x) for x in raw["hist"]][-40:]
+    except (KeyError, TypeError, ValueError):
+        return Response({"error": "State is missing or malformed."}, status=400)
+    return Response(life_support_step_fn(state, mode, scenario))
+

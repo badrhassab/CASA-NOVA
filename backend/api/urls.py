@@ -5,6 +5,7 @@ from .views import (
     MissionCrewViewSet, EclssTelemetryViewSet, HealthBiometricViewSet,
     FoodInventoryViewSet, DailyNutritionTargetViewSet, MealLogViewSet,
     MedicalChatLogViewSet, astronaut_login, consult_medical_ai, get_astronaut_missions,
+    health, life_support_start, life_support_step,
 )
 from .nutrition import (
     nutrition_alerts, nutrition_catalog, nutrition_delete_meal,
@@ -38,4 +39,7 @@ urlpatterns = [
     path('nutrition/meals/<uuid:meal_id>/', nutrition_delete_meal, name='nutrition-delete-meal'),
     path('nutrition/hydration/', nutrition_log_hydration, name='nutrition-log-hydration'),
     path('nutrition/reviews/', nutrition_request_review, name='nutrition-request-review'),
+    path('health/', health, name='health'),
+    path('life-support/', life_support_start, name='life-support-start'),
+    path('life-support/step/', life_support_step, name='life-support-step'),
 ]
