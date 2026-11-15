@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
 // colors per body: base, dark, light, atmosphere glow
@@ -17,7 +17,6 @@ const hash = (x, y, s) => {
 };
 const smooth = (t) => t * t * (3 - 2 * t);
 
-// value noise that wraps horizontally so the texture has no seam
 function noise(x, y, px, s) {
   const xi = Math.floor(x), yi = Math.floor(y);
   const xf = smooth(x - xi), yf = smooth(y - yi);
@@ -27,6 +26,7 @@ function noise(x, y, px, s) {
   const d = hash((((xi + 1) % px) + px) % px, yi + 1, s);
   return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
 }
+
 function fbm(u, v, sx, sy, seed) {
   let amp = 0.5, sum = 0, norm = 0;
   for (let o = 0; o < 5; o++) {
@@ -42,14 +42,17 @@ const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
 const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
 
 function makeTexture(slug, look) {
+  const safeSlug = (slug || "mars").toLowerCase();
   const W = 512, H = 256;
   const canvas = document.createElement("canvas");
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext("2d");
+  if (!ctx) return new THREE.Texture();
+
   const img = ctx.createImageData(W, H);
   const [base, dark, light] = look.c.map(rgb);
-  const seed = slug.length * 7.3;
-  const banded = slug === "venus" || slug === "sun";
+  const seed = safeSlug.length * 7.3;
+  const banded = safeSlug === "venus" || safeSlug === "sun";
 
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -58,14 +61,14 @@ function makeTexture(slug, look) {
         ? fbm(u + fbm(u, v, 3, 3, seed) * 0.15, v, 4, 1.5, seed)
         : fbm(u, v, 4, 2, seed);
       let col = n < 0.5 ? mix(dark, base, n * 2) : mix(base, light, (n - 0.5) * 2);
-      if (slug === "mars" && (v < 0.07 || v > 0.93)) col = mix(col, [245, 245, 250], 0.85);
+      if (safeSlug === "mars" && (v < 0.07 || v > 0.93)) col = mix(col, [245, 245, 250], 0.85);
       const i = (y * W + x) * 4;
       img.data[i] = col[0]; img.data[i + 1] = col[1]; img.data[i + 2] = col[2]; img.data[i + 3] = 255;
     }
   }
   ctx.putImageData(img, 0, 0);
 
-  if (slug === "moon" || slug === "mars") {
+  if (safeSlug === "moon" || safeSlug === "mars") {
     for (let k = 0; k < 70; k++) {
       const x = Math.random() * W, y = H * 0.1 + Math.random() * H * 0.8;
       const r = 2 + Math.random() ** 2 * 16;
@@ -77,7 +80,7 @@ function makeTexture(slug, look) {
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     }
   }
-  if (slug === "europa") {
+  if (safeSlug === "europa") {
     ctx.strokeStyle = "rgba(130,70,40,0.55)";
     for (let k = 0; k < 40; k++) {
       ctx.lineWidth = 0.6 + Math.random() * 1.4;
@@ -113,183 +116,192 @@ const glowMaterial = (color, power = 2) =>
     depthWrite: false,
   });
 
-export default function Planet3D({ slug, className = "planet-stage" }) {
+export default function Planet3D({ slug = "mars", className = "planet-stage" }) {
   const mountRef = useRef(null);
+  const [webglError, setWebglError] = useState(false);
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
-    const look = LOOK[slug] || FALLBACK;
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-    camera.position.z = 4.2;
+    const safeSlug = (slug || "mars").toLowerCase();
+    const look = LOOK[safeSlug] || FALLBACK;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    mount.appendChild(renderer.domElement);
+    mount.innerHTML = "";
 
-    // ── 3D Starfield surrounding the planet in space ──
-    const starCount = 350;
-    const starGeo = new THREE.BufferGeometry();
-    const starPositions = new Float32Array(starCount * 3);
-    const starColors = new Float32Array(starCount * 3);
-
-    for (let i = 0; i < starCount; i++) {
-      const rad = 10 + Math.random() * 24;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(Math.random() * 2 - 1);
-      starPositions[i * 3] = rad * Math.sin(phi) * Math.cos(theta);
-      starPositions[i * 3 + 1] = rad * Math.sin(phi) * Math.sin(theta);
-      starPositions[i * 3 + 2] = rad * Math.cos(phi);
-
-      const isOrange = Math.random() < 0.1;
-      if (isOrange) {
-        starColors[i * 3] = 1.0;
-        starColors[i * 3 + 1] = 0.42;
-        starColors[i * 3 + 2] = 0.17;
-      } else {
-        const b = 0.65 + Math.random() * 0.35;
-        starColors[i * 3] = b;
-        starColors[i * 3 + 1] = b;
-        starColors[i * 3 + 2] = Math.min(1.0, b + Math.random() * 0.15);
-      }
-    }
-
-    starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
-    starGeo.setAttribute("color", new THREE.BufferAttribute(starColors, 3));
-
-    const starCanvas = document.createElement("canvas");
-    starCanvas.width = 16;
-    starCanvas.height = 16;
-    const sCtx = starCanvas.getContext("2d");
-    const starGrad = sCtx.createRadialGradient(8, 8, 0, 8, 8, 8);
-    starGrad.addColorStop(0, "rgba(255,255,255,1)");
-    starGrad.addColorStop(0.35, "rgba(255,255,255,0.75)");
-    starGrad.addColorStop(1, "rgba(255,255,255,0)");
-    sCtx.fillStyle = starGrad;
-    sCtx.beginPath();
-    sCtx.arc(8, 8, 8, 0, Math.PI * 2);
-    sCtx.fill();
-    const starTexture = new THREE.CanvasTexture(starCanvas);
-
-    const starMat = new THREE.PointsMaterial({
-      size: 0.22,
-      map: starTexture,
-      vertexColors: true,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    const stars = new THREE.Points(starGeo, starMat);
-    scene.add(stars);
-
-    // ── 3D Planet sphere ──
-    const texture = makeTexture(slug, look);
-    const material = look.emissive
-      ? new THREE.MeshBasicMaterial({ map: texture })
-      : new THREE.MeshStandardMaterial({
-          map: texture,
-          roughness: 0.92,
-          metalness: 0.05,
-          ...(look.bump ? { bumpMap: texture, bumpScale: 0.045 } : {}),
-        });
-
-    const planet = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), material);
-    planet.rotation.z = 0.2;
-    scene.add(planet);
-
-    if (look.glow) {
-      const atm = new THREE.Mesh(
-        new THREE.SphereGeometry(look.emissive ? 1.35 : 1.14, 64, 64),
-        glowMaterial(look.glow, look.emissive ? 3 : 2)
-      );
-      scene.add(atm);
-    }
-
-    if (!look.emissive) {
-      scene.add(new THREE.AmbientLight(0xffffff, 0.45));
-      const sun = new THREE.DirectionalLight(0xffffff, 2.8);
-      sun.position.set(-3, 1.8, 3.2);
-      scene.add(sun);
-      const rim = new THREE.DirectionalLight(0x4060aa, 0.6);
-      rim.position.set(3, -1, -2);
-      scene.add(rim);
-    }
-
-    // optional real texture: public/textures/<slug>.jpg (falls back silently)
-    new THREE.TextureLoader().load(
-      `/textures/${slug}.jpg`,
-      (real) => {
-        real.colorSpace = THREE.SRGBColorSpace;
-        material.map = real;
-        if (material.bumpMap) material.bumpMap = real;
-        material.needsUpdate = true;
-      },
-      undefined,
-      () => {}
-    );
-
-    const resize = () => {
-      const w = mount.clientWidth || 300;
-      const h = mount.clientHeight || 300;
-      renderer.setSize(w, h);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    };
-    resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(mount);
-
-    // drag to spin
-    let dragging = false, lastX = 0, velocity = 0;
-    const down = (e) => { dragging = true; lastX = e.clientX; };
-    const up = () => { dragging = false; };
-    const move = (e) => {
-      if (!dragging) return;
-      velocity = (e.clientX - lastX) * 0.008;
-      planet.rotation.y += velocity;
-      stars.rotation.y += velocity * 0.25;
-      lastX = e.clientX;
-    };
-    const el = renderer.domElement;
-    el.addEventListener("pointerdown", down);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointermove", move);
-
+    let scene;
+    let camera;
+    let renderer;
     let raf;
-    let t = 0;
-    const loop = () => {
-      t += 0.01;
-      if (!dragging) {
-        planet.rotation.y += 0.002 + velocity * 0.9;
-        stars.rotation.y += 0.0003;
-        stars.rotation.x += 0.0001;
-      }
-      velocity *= 0.95;
-      renderer.render(scene, camera);
-      raf = requestAnimationFrame(loop);
-    };
-    loop();
+    let ro;
 
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-      el.removeEventListener("pointerdown", down);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointermove", move);
-      scene.traverse((o) => {
-        o.geometry?.dispose();
-        o.material?.dispose?.();
-      });
-      starTexture.dispose();
-      texture.dispose();
-      renderer.dispose();
-      if (mount.contains(el)) {
-        mount.removeChild(el);
+    try {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+      camera.position.z = 4.2;
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "default" });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      mount.appendChild(renderer.domElement);
+
+      // Starfield
+      const starCount = 350;
+      const starGeo = new THREE.BufferGeometry();
+      const starPositions = new Float32Array(starCount * 3);
+      const starColors = new Float32Array(starCount * 3);
+
+      for (let i = 0; i < starCount; i++) {
+        const rad = 25 + Math.random() * 20;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        starPositions[i * 3]     = rad * Math.sin(phi) * Math.cos(theta);
+        starPositions[i * 3 + 1] = rad * Math.sin(phi) * Math.sin(theta);
+        starPositions[i * 3 + 2] = rad * Math.cos(phi);
+
+        const isOrange = Math.random() < 0.1;
+        if (isOrange) {
+          starColors[i * 3] = 1.0; starColors[i * 3 + 1] = 0.42; starColors[i * 3 + 2] = 0.17;
+        } else {
+          const b = 0.65 + Math.random() * 0.35;
+          starColors[i * 3] = b; starColors[i * 3 + 1] = b; starColors[i * 3 + 2] = Math.min(1.0, b + Math.random() * 0.15);
+        }
       }
-    };
+
+      starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+      starGeo.setAttribute("color", new THREE.BufferAttribute(starColors, 3));
+
+      const starCanvas = document.createElement("canvas");
+      starCanvas.width = 16; starCanvas.height = 16;
+      const sCtx = starCanvas.getContext("2d");
+      if (sCtx) {
+        const starGrad = sCtx.createRadialGradient(8, 8, 0, 8, 8, 8);
+        starGrad.addColorStop(0, "rgba(255,255,255,1)");
+        starGrad.addColorStop(0.35, "rgba(255,255,255,0.75)");
+        starGrad.addColorStop(1, "rgba(255,255,255,0)");
+        sCtx.fillStyle = starGrad;
+        sCtx.beginPath(); sCtx.arc(8, 8, 8, 0, Math.PI * 2); sCtx.fill();
+      }
+      const starTexture = new THREE.CanvasTexture(starCanvas);
+
+      const starMat = new THREE.PointsMaterial({
+        size: 0.22,
+        map: starTexture,
+        vertexColors: true,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      const stars = new THREE.Points(starGeo, starMat);
+      scene.add(stars);
+
+      // Planet sphere
+      const texture = makeTexture(safeSlug, look);
+      const material = look.emissive
+        ? new THREE.MeshBasicMaterial({ map: texture })
+        : new THREE.MeshStandardMaterial({
+            map: texture,
+            roughness: 0.92,
+            metalness: 0.05,
+            ...(look.bump ? { bumpMap: texture, bumpScale: 0.045 } : {}),
+          });
+
+      const planet = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), material);
+      planet.rotation.z = 0.2;
+      scene.add(planet);
+
+      if (look.glow) {
+        const atm = new THREE.Mesh(
+          new THREE.SphereGeometry(look.emissive ? 1.35 : 1.14, 64, 64),
+          glowMaterial(look.glow, look.emissive ? 3 : 2)
+        );
+        scene.add(atm);
+      }
+
+      if (!look.emissive) {
+        scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+        const sun = new THREE.DirectionalLight(0xffffff, 2.8);
+        sun.position.set(-3, 1.8, 3.2);
+        scene.add(sun);
+        const rim = new THREE.DirectionalLight(0x4060aa, 0.6);
+        rim.position.set(3, -1, -2);
+        scene.add(rim);
+      }
+
+      const resize = () => {
+        if (!mount) return;
+        const w = mount.clientWidth || 320;
+        const h = mount.clientHeight || 320;
+        renderer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      };
+      resize();
+      ro = new ResizeObserver(resize);
+      ro.observe(mount);
+
+      let dragging = false, lastX = 0, velocity = 0;
+      const down = (e) => { dragging = true; lastX = e.clientX; };
+      const up = () => { dragging = false; };
+      const move = (e) => {
+        if (!dragging) return;
+        velocity = (e.clientX - lastX) * 0.008;
+        planet.rotation.y += velocity;
+        stars.rotation.y += velocity * 0.25;
+        lastX = e.clientX;
+      };
+      const el = renderer.domElement;
+      el.addEventListener("pointerdown", down);
+      window.addEventListener("pointerup", up);
+      window.addEventListener("pointermove", move);
+
+      const loop = () => {
+        if (!dragging) {
+          planet.rotation.y += 0.002 + velocity * 0.9;
+          stars.rotation.y += 0.0003;
+          stars.rotation.x += 0.0001;
+        }
+        velocity *= 0.95;
+        renderer.render(scene, camera);
+        raf = requestAnimationFrame(loop);
+      };
+      loop();
+
+      return () => {
+        cancelAnimationFrame(raf);
+        if (ro) ro.disconnect();
+        el.removeEventListener("pointerdown", down);
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointermove", move);
+        scene.traverse((o) => {
+          if (o.geometry) o.geometry.dispose();
+          if (o.material) {
+            const m = o.material;
+            if (Array.isArray(m)) m.forEach(x => x.dispose());
+            else m.dispose();
+          }
+        });
+        starTexture.dispose();
+        texture.dispose();
+        renderer.dispose();
+        if (mount.contains(el)) {
+          mount.removeChild(el);
+        }
+      };
+    } catch (err) {
+      console.warn("WebGL initialization note:", err);
+      setWebglError(true);
+    }
   }, [slug]);
+
+  if (webglError) {
+    return (
+      <div className={`${className} flex items-center justify-center`}>
+        <div className="w-48 h-48 rounded-full border border-orange-500/40 bg-gradient-to-tr from-orange-950 via-slate-900 to-amber-900/50 shadow-[0_0_60px_rgba(255,90,31,0.25)] flex items-center justify-center font-mono text-[10px] text-orange-300">
+          ● {slug ? slug.toUpperCase() : 'CELESTIAL BODY'}
+        </div>
+      </div>
+    );
+  }
 
   return <div className={className} ref={mountRef} />;
 }

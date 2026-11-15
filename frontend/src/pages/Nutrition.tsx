@@ -15,7 +15,7 @@ export const Nutrition: React.FC<NutritionProps> = ({
   const [astronaut, setAstronaut] = useState<any>(() => {
     if (propAstronaut) return propAstronaut;
     try {
-      const saved = localStorage.getItem('astroguard_user');
+      const saved = sessionStorage.getItem('astroguard_user');
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -31,7 +31,7 @@ export const Nutrition: React.FC<NutritionProps> = ({
   const handleLogin = (user: any) => {
     setAstronaut(user);
     try {
-      localStorage.setItem('astroguard_user', JSON.stringify(user));
+      sessionStorage.setItem('astroguard_user', JSON.stringify(user));
     } catch {}
     if (propOnLoginSuccess) propOnLoginSuccess(user);
   };

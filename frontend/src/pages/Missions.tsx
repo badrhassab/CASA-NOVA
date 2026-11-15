@@ -17,7 +17,7 @@ export const Missions: React.FC<MissionsProps> = ({
   const [astronaut, setAstronaut] = useState<any>(() => {
     if (propAstronaut) return propAstronaut;
     try {
-      const saved = localStorage.getItem('astroguard_user');
+      const saved = sessionStorage.getItem('astroguard_user');
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -33,7 +33,7 @@ export const Missions: React.FC<MissionsProps> = ({
   const handleLogin = (user: any) => {
     setAstronaut(user);
     try {
-      localStorage.setItem('astroguard_user', JSON.stringify(user));
+      sessionStorage.setItem('astroguard_user', JSON.stringify(user));
     } catch {}
     if (propOnLoginSuccess) propOnLoginSuccess(user);
   };
@@ -41,6 +41,7 @@ export const Missions: React.FC<MissionsProps> = ({
   const handleLogout = () => {
     setAstronaut(null);
     try {
+      sessionStorage.removeItem('astroguard_user');
       localStorage.removeItem('astroguard_user');
     } catch {}
     if (propOnLogout) propOnLogout();

@@ -67,20 +67,23 @@ export default function HealthImpact({ d }) {
           <div className="hi-actions">
             <div className="mono label">Recommended actions</div>
             <div className="hi-actions-grid">
-              {toAct.map((r) => (
-                <div key={r.key}>
-                  <div className="hi-act-title">{r.label}</div>
-                  {ACTIONS[r.key].map((a) => {
-                    const id = `${d.slug}:${r.key}:${a}`;
-                    return (
-                      <label key={id} className={done[id] ? "chk done" : "chk"}>
-                        <input type="checkbox" checked={!!done[id]} onChange={() => toggle(id)} />
-                        <span>{a}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              ))}
+              {toAct.map((r) => {
+                const actionsList = ACTIONS[r.key] || [];
+                return (
+                  <div key={r.key}>
+                    <div className="hi-act-title">{r.label}</div>
+                    {actionsList.map((a) => {
+                      const id = `${d.slug}:${r.key}:${a}`;
+                      return (
+                        <label key={id} className={done[id] ? "chk done" : "chk"}>
+                          <input type="checkbox" checked={!!done[id]} onChange={() => toggle(id)} />
+                          <span>{a}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )

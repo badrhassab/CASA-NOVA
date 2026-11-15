@@ -16,7 +16,9 @@ import { initDatabase } from './db/db';
 export function App() {
   const [currentAstronaut, setCurrentAstronaut] = useState(() => {
     try {
-      const saved = localStorage.getItem('astroguard_user');
+      // Clear legacy localStorage so exiting the site always requires re-login
+      localStorage.removeItem('astroguard_user');
+      const saved = sessionStorage.getItem('astroguard_user');
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -30,13 +32,14 @@ export function App() {
   const handleLogin = (user) => {
     setCurrentAstronaut(user);
     try {
-      localStorage.setItem('astroguard_user', JSON.stringify(user));
+      sessionStorage.setItem('astroguard_user', JSON.stringify(user));
     } catch {}
   };
 
   const handleLogout = () => {
     setCurrentAstronaut(null);
     try {
+      sessionStorage.removeItem('astroguard_user');
       localStorage.removeItem('astroguard_user');
     } catch {}
   };
@@ -57,6 +60,7 @@ export function App() {
         <Route path="/checkin" element={<CheckIn />} />
         <Route path="/twin" element={<Twin />} />
         <Route path="/doctor" element={<Doctor currentAstronaut={currentAstronaut} />} />
+        <Route path="/assistronaut" element={<Doctor currentAstronaut={currentAstronaut} />} />
         <Route path="/planets" element={<Planets />} />
         <Route path="/lifesupport" element={<LifeSupport />} />
         <Route

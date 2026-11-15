@@ -477,39 +477,6 @@ export const Landing: React.FC = () => {
           pointerEvents: 'none',
         }}
       >
-        {/* Black ellipse behind visor — keeps visor dark in light mode */}
-        {/* top value: image is 85vh tall anchored at bottom:0,
-            so visor (~32% from top of image) is at:
-            100vh - 85vh + 85vh*0.32 ≈ 100vh - 85vh*0.68 ≈ 42.2% from top */}
-        <div style={{
-          position: 'absolute',
-          top: '22%', left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 'clamp(140px, 18vw, 280px)',
-          height: 'clamp(110px, 14vw, 220px)',
-          borderRadius: '50%',
-          backgroundColor: 'var(--bg)',   // matches theme bg so it's seamless
-          zIndex: 1,
-        }} />
-
-        {/* Visor orange reflection */}
-        <div
-          ref={visorRef}
-          style={{
-            position: 'absolute',
-            top: '22%', left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 'clamp(130px, 16vw, 260px)',
-            height: 'clamp(100px, 12vw, 210px)',
-            borderRadius: '50%',
-            background: 'radial-gradient(ellipse at 50% 42%, rgba(255,90,31,0.55) 0%, rgba(255,90,31,0.14) 45%, transparent 72%)',
-            mixBlendMode: 'screen',
-            filter: 'blur(10px)',
-            opacity: 0,
-            zIndex: 3,
-          }}
-        />
-
         {/* Decorative floating specks */}
         <div ref={specksRef} style={{ position: 'absolute', inset: 0, zIndex: 2 }}>
           <div className="gs-speck" style={{ position: 'absolute', top: '18%', left: '37%', width: 4, height: 4, borderRadius: '50%', opacity: 0, backgroundColor: 'var(--fg)' }} />

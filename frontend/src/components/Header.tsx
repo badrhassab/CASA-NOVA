@@ -12,7 +12,7 @@ const NAV_ITEMS = [
 ] as const;
 
 const QUICK_LINKS = [
-  { label: 'ai doctor',    path: '/doctor'      },
+  { label: 'assistronaut', path: '/doctor'      },
   { label: 'planets',      path: '/planets'     },
   { label: 'life support', path: '/lifesupport' },
   { label: 'report',       path: '/report'      },
@@ -32,13 +32,14 @@ export const Header: React.FC<HeaderProps> = ({ className = '', onLogout }) => {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('astroguard_user');
+      const saved = sessionStorage.getItem('astroguard_user');
       if (saved) setCrew(JSON.parse(saved));
     } catch {}
   }, []);
 
   const handleLogoutClick = () => {
     try {
+      sessionStorage.removeItem('astroguard_user');
       localStorage.removeItem('astroguard_user');
     } catch {}
     if (onLogout) {
